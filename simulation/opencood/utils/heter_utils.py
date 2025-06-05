@@ -29,7 +29,7 @@ class Adaptor:
         self.train = train
 
 
-    def reorder_cav_list(self, cav_list, scenario_name):
+    def reorder_cav_list(self, cav_list, scenario_name,single):
         """
         When evaluation, make the cav that could be ego modality after mapping be the first.
 
@@ -41,21 +41,48 @@ class Adaptor:
             # shuffle the cav list
             random.shuffle(cav_list)
             return cav_list
+        if scenario_name not in self.modality_assignment:
+            return []
 
         assignment = self.modality_assignment[scenario_name]
-        if assignment[cav_list[0]] not in self.ego_modality:
-            ego_cav = None
-            for cav_id, modality in assignment.items():
-                if self.mapping_dict[modality] in self.ego_modality: # after mapping the modality is ego
-                    ego_cav = cav_id
-                    break
+#         print("assignment:——————————————————————————")
+#         print(self.modality_assignment)
+#         print(self.ego_modality)
+        print("————————————————————————")
+        print(cav_list)
+        
 
-            if ego_cav is None:
-                return cav_list
+        cav_list = [cav for cav in cav_list if cav in assignment]
+        if not cav_list:  # if no cav in the assignment, return empty list
+            return []
+        print(cav_list)
+        print(assignment)
+        
+         
+#         if assignment[cav_list[0]] not in self.ego_modality:
 
-            other_cav = sorted(list(assignment.keys()))
-            other_cav.remove(ego_cav)
-            cav_list = [ego_cav] + other_cav
+#             ego_cav = None
+#             for cav_id, modality in assignment.items():
+#                 if self.mapping_dict[modality] in self.ego_modality: # after mapping the modality is ego
+#                     ego_cav = cav_id
+#                     break
+
+#             if ego_cav is None:
+#                 return cav_list
+
+#             other_cav = sorted(list(assignment.keys()))
+#             other_cav.remove(ego_cav)
+#             cav_list = [ego_cav] + other_cav
+            
+        print(cav_list)
+        # single
+        if single:
+            cav_list = cav_list[:1]
+            print("SINGLE")
+            print(cav_list)
+            print("————————————————————————")
+        else:
+            print("___________________NOT SINGLE_____________")
 
         return cav_list
     
@@ -93,38 +120,6 @@ class Adaptor:
         return lidar_file_path
 
 
-def assign_modality(root_dir="dataset/OPV2V", output_path="opencood/logs/heter_modality_assign/opv2v.json"):
-    np.random.seed(303)
-    splits = ['train', 'test', 'validate']
-    scenario_cav_modality_dict = OrderedDict()
-
-    for split in splits:
-        split_path = os.path.join(root_dir, split)
-        scenario_folders = sorted([os.path.join(split_path, x)
-                                    for x in os.listdir(split_path) if
-                                    os.path.isdir(os.path.join(split_path, x))])
-
-        for scenario_folder in scenario_folders:
-            scenario_name = scenario_folder.split('/')[-1]
-            scenario_cav_modality_dict[scenario_name] = OrderedDict()
-
-            cav_list = sorted([x for x in os.listdir(scenario_folder) \
-                                if os.path.isdir(os.path.join(scenario_folder, x))])
-
-            # randomly exclude one agent to be M3 
-            M3_agent_idx = np.random.randint(len(cav_list))
-
-            for j, cav_id in enumerate(cav_list):
-
-                if j == M3_agent_idx:
-                    scenario_cav_modality_dict[scenario_name][cav_id] = "m3" # M3 modality
-                else:
-                    scenario_cav_modality_dict[scenario_name][cav_id] = 'm'+str(np.random.randint(1,3)) # can be M1 or M2 mdoality
-    
-    with open(output_path, "w") as f:
-        json.dump(scenario_cav_modality_dict, f, indent=4, sort_keys=True)
-
-
 def assign_modality_4(root_dir="dataset/OPV2V", output_path="opencood/logs/heter_modality_assign/opv2v_4modality.json"):
     np.random.seed(303)
     splits = ['train', 'test', 'validate']
@@ -151,5 +146,45 @@ def assign_modality_4(root_dir="dataset/OPV2V", output_path="opencood/logs/heter
     with open(output_path, "w") as f:
         json.dump(scenario_cav_modality_dict, f, indent=4, sort_keys=True)
 
+
+def assign_modality_4_in_order(root_dir="dataset/OPV2V", output_path="opencood/logs/heter_modality_assign/opv2v_4modality_in_order.json"):
+    """
+        We assign each cav with a modality in order. Use m1m2m3m4 circularly
+        cav1 -> m1
+        cav2 -> m2
+        cav3 -> m3
+        cav4 -> m4
+        cav5 -> m1
+        cav6 -> m2
+        ...
+    """
+    splits = ['test']
+    scenario_cav_modality_dict = OrderedDict()
+
+    for split in splits:
+        split_path = os.path.join(root_dir, split)
+        scenario_folders = sorted([os.path.join(split_path, x)
+                                    for x in os.listdir(split_path) if
+                                    os.path.isdir(os.path.join(split_path, x))])
+
+        for scenario_folder in scenario_folders:
+            scenario_name = scenario_folder.split('/')[-1]
+            scenario_cav_modality_dict[scenario_name] = OrderedDict()
+
+            cav_list = sorted([x for x in os.listdir(scenario_folder) \
+                                if os.path.isdir(os.path.join(scenario_folder, x))])
+            if cav_list[0] == '-1':
+                cav_list = cav_list[1:] + cav_list[:1]
+
+            for j, cav_id in enumerate(cav_list):
+                scenario_cav_modality_dict[scenario_name][cav_id] = 'm'+str(j%4+1)
+
+    
+    with open(output_path, "w") as f:
+        # if V2XSet, you can set sort_keys to False
+        json.dump(scenario_cav_modality_dict, f, indent=4, sort_keys=True)
+
 if __name__ == "__main__":
-    assign_modality_4()
+    # assign_modality()
+    # assign_modality_4_in_order()
+    assign_modality_4('dataset/V2XSET', output_path='opencood/logs/heter_modality_assign/v2xset_4modality.json')

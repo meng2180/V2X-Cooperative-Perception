@@ -36,13 +36,14 @@ def getLateheterFusionDataset(cls):
     cls: the Basedataset.
     """
     class LateheterFusionDataset(cls):
-        def __init__(self, params, visualize, train=True):
-            super().__init__(params, visualize, train)
+        def __init__(self, params, visualize, train=True,single=False):
+            super().__init__(params, visualize, train,single)
             self.anchor_box = self.post_processor.generate_anchor_box()
             self.anchor_box_torch = torch.from_numpy(self.anchor_box)
 
             self.heterogeneous = True
-            self.modality_assignment = read_json(params['heter']['assignment_path'])
+            self.modality_assignment = None if ('assignment_path' not in params['heter'] or params['heter']['assignment_path'] is None) \
+                                            else read_json(params['heter']['assignment_path'])
             self.ego_modality = params['heter']['ego_modality'] # "m1" or "m1&m2" or "m3"
 
             self.modality_name_list = list(params['heter']['modality_setting'].keys())
@@ -204,8 +205,9 @@ def getLateheterFusionDataset(cls):
 
                 # data augmentation, seems very important for single agent training, because lack of data diversity.
                 # only work for lidar modality in training.
-                lidar_np, object_bbx_center, object_bbx_mask = \
-                self.augment(lidar_np, object_bbx_center, object_bbx_mask)
+                if not self.visualize:
+                    lidar_np, object_bbx_center, object_bbx_mask = \
+                    self.augment(lidar_np, object_bbx_center, object_bbx_mask)
                 if sensor_type == "lidar":
                     processed_lidar = eval(f"self.pre_processor_{modality_name}").preprocess(lidar_np)
                     selected_cav_processed.update({f'processed_features_{modality_name}': processed_lidar})
@@ -488,7 +490,6 @@ def getLateheterFusionDataset(cls):
                     torch.from_numpy(
                         np.array(cav_content['transformation_matrix'])).float()
                 
-                # late fusion training, no noise
                 transformation_matrix_clean_torch = \
                     torch.from_numpy(
                         np.array(cav_content['transformation_matrix_clean'])).float()

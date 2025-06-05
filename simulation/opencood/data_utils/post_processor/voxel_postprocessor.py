@@ -2,6 +2,10 @@
 # Author: Runsheng Xu <rxx3386@ucla.edu>, OpenPCDet
 # License: TDG-Attribution-NonCommercial-NoDistrib
 
+
+"""
+3D Anchor Generator for Voxel
+"""
 import math
 import sys
 
@@ -111,7 +115,7 @@ class VoxelPostprocessor(BasePostprocessor):
 
         # (H, W, 2)
         pos_equal_one = np.zeros((*feature_map_shape, self.anchor_num))
-        neg_equal_one = np.zeros((*feature_map_shape, self.anchor_num)) 
+        neg_equal_one = np.zeros((*feature_map_shape, self.anchor_num))
         # (H, W, self.anchor_num * 7)
         targets = np.zeros((*feature_map_shape, self.anchor_num * 7))
 
@@ -127,7 +131,7 @@ class VoxelPostprocessor(BasePostprocessor):
                                           order=self.params['order'])
         # (H*W*anchor_num, 4)
         anchors_standup_2d = \
-            box_utils.corner2d_to_standup_box(anchors_corner) 
+            box_utils.corner2d_to_standup_box(anchors_corner)
         # (n, 4)
         gt_standup_2d = \
             box_utils.corner2d_to_standup_box(gt_box_corner_valid)
@@ -136,11 +140,11 @@ class VoxelPostprocessor(BasePostprocessor):
         iou = bbox_overlaps(
             np.ascontiguousarray(anchors_standup_2d).astype(np.float32),
             np.ascontiguousarray(gt_standup_2d).astype(np.float32),
-        ) # 计算 IoU
+        )
 
         # the anchor boxes has the largest iou across
         # shape: (n)
-        id_highest = np.argmax(iou.T, axis=1) 
+        id_highest = np.argmax(iou.T, axis=1)
         # [0, 1, 2, ..., n-1]
         id_highest_gt = np.arange(iou.T.shape[0])
         # make sure all highest iou is larger than 0
@@ -193,7 +197,7 @@ class VoxelPostprocessor(BasePostprocessor):
         # to avoid a box be pos/neg in the same time
         index_x, index_y, index_z = np.unravel_index(
             id_highest, (*feature_map_shape, self.anchor_num))
-        neg_equal_one[index_x, index_y, index_z] = 0 
+        neg_equal_one[index_x, index_y, index_z] = 0
 
 
         label_dict = {'pos_equal_one': pos_equal_one,
@@ -206,6 +210,7 @@ class VoxelPostprocessor(BasePostprocessor):
     def collate_batch(label_batch_list):
         """
         Customized collate function for target label generation.
+
         Parameters
         ----------
         label_batch_list : list
@@ -255,8 +260,10 @@ class VoxelPostprocessor(BasePostprocessor):
         ----------
         data_dict : dict
             The dictionary containing the origin input data of model.
+
         output_dict :dict
             The dictionary containing the output of the model.
+
         Returns
         -------
         pred_box3d_tensor : torch.Tensor
@@ -267,10 +274,9 @@ class VoxelPostprocessor(BasePostprocessor):
         # the final bounding box list
         pred_box3d_list = []
         pred_box2d_list = []
-       
-        for cav_id, cav_content in data_dict.items():
-           
-            assert cav_id in output_dict
+        for cav_id in output_dict.keys():
+            assert cav_id in data_dict
+            cav_content = data_dict[cav_id]
             # the transformation matrix to ego space
             transformation_matrix = cav_content['transformation_matrix'] # no clean
 
@@ -301,12 +307,11 @@ class VoxelPostprocessor(BasePostprocessor):
 
             mask = \
                 torch.gt(prob, self.params['target_args']['score_threshold'])
-            mask = mask.view(1, -1) 
-            mask_reg = mask.unsqueeze(2).repeat(1, 1, 7)    
+            mask = mask.view(1, -1)
+            mask_reg = mask.unsqueeze(2).repeat(1, 1, 7)
 
             # during validation/testing, the batch size should be 1
             assert batch_box3d.shape[0] == 1
-
             boxes3d = torch.masked_select(batch_box3d[0],
                                           mask_reg[0]).view(-1, 7)
             scores = torch.masked_select(prob[0], mask[0])
@@ -326,15 +331,14 @@ class VoxelPostprocessor(BasePostprocessor):
                 period = (2 * np.pi / num_bins) # pi
                 dir_rot = limit_period(
                     boxes3d[..., 6] - dir_offset, 0, period
-                )
-                boxes3d[..., 6] = dir_rot + dir_offset + period * dir_labels.to(dir_cls_preds.dtype)
+                ) # 限制在0到pi之间
+                boxes3d[..., 6] = dir_rot + dir_offset + period * dir_labels.to(dir_cls_preds.dtype) # 转化0.25pi到2.5pi
                 boxes3d[..., 6] = limit_period(boxes3d[..., 6], 0.5, 2 * np.pi) # limit to [-pi, pi]
 
             if 'iou_preds' in output_dict[cav_id].keys() and len(boxes3d) != 0:
                 iou = torch.sigmoid(output_dict[cav_id]['iou_preds'].permute(0, 2, 3, 1).contiguous()).reshape(1, -1)
                 iou = torch.clamp(iou, min=0.0, max=1.0)
                 iou = (iou + 1) * 0.5
-
                 scores = scores * torch.pow(iou.masked_select(mask), 4)
 
             # convert output to bounding box
@@ -350,11 +354,9 @@ class VoxelPostprocessor(BasePostprocessor):
                     box_utils.project_box3d(boxes3d_corner,
                                             transformation_matrix)
                 # convert 3d bbx to 2d, (N,4)
-
                 projected_boxes2d = \
                     box_utils.corner_to_standup_box_torch(projected_boxes3d)
                 # (N, 5)
-
                 boxes2d_score = \
                     torch.cat((projected_boxes2d, scores.unsqueeze(1)), dim=1)
 
@@ -370,11 +372,8 @@ class VoxelPostprocessor(BasePostprocessor):
         # predicted 3d bbx
         pred_box3d_tensor = torch.vstack(pred_box3d_list)
         # remove large bbx
-
         keep_index_1 = box_utils.remove_large_pred_bbx(pred_box3d_tensor)
-
         keep_index_2 = box_utils.remove_bbx_abnormal_z(pred_box3d_tensor)
-
         keep_index = torch.logical_and(keep_index_1, keep_index_2)
 
         pred_box3d_tensor = pred_box3d_tensor[keep_index]
@@ -402,6 +401,7 @@ class VoxelPostprocessor(BasePostprocessor):
         scores = scores[mask]
 
         assert scores.shape[0] == pred_box3d_tensor.shape[0]
+
         return pred_box3d_tensor, scores
 
     @staticmethod
