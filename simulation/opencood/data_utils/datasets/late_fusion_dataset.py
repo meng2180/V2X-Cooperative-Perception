@@ -34,14 +34,10 @@ def getLateFusionDataset(cls):
     cls: the Basedataset.
     """
     class LateFusionDataset(cls):
-        def __init__(self, params, visualize, train=True):
-            super().__init__(params, visualize, train)
+        def __init__(self, params, visualize, train=True,single=False):
+            super().__init__(params, visualize, train,single)
             self.anchor_box = self.post_processor.generate_anchor_box()
             self.anchor_box_torch = torch.from_numpy(self.anchor_box)
-
-            self.heterogeneous = False
-            if 'heter' in params:
-                self.heterogeneous = True
 
         def __getitem__(self, idx):
             base_data_dict = self.retrieve_base_data(idx)
@@ -125,10 +121,6 @@ def getLateFusionDataset(cls):
                 processed_data_dict.update({update_cav: selected_cav_processed})
                 cav_id_list_newname.append(update_cav)
             
-            # heterogeneous
-            if self.heterogeneous:
-                processed_data_dict['ego']['idx'] = idx
-                processed_data_dict['ego']['cav_list'] = cav_id_list_newname
 
             return processed_data_dict
 
@@ -168,9 +160,8 @@ def getLateFusionDataset(cls):
 
                 # data augmentation, seems very important for single agent training, because lack of data diversity.
                 # only work for lidar modality in training.
-                if not self.heterogeneous:
-                    lidar_np, object_bbx_center, object_bbx_mask = \
-                    self.augment(lidar_np, object_bbx_center, object_bbx_mask)
+                lidar_np, object_bbx_center, object_bbx_mask = \
+                self.augment(lidar_np, object_bbx_center, object_bbx_mask)
 
                 lidar_dict = self.pre_processor.preprocess(lidar_np)
                 selected_cav_processed.update({'processed_lidar': lidar_dict})
@@ -395,17 +386,6 @@ def getLateFusionDataset(cls):
 
             output_dict = {}
 
-            # heterogeneous
-            if self.heterogeneous:
-                idx = batch['ego']['idx']
-                cav_list = batch['ego']['cav_list'] # ['ego', '650' ..]
-                cav_num = len(batch)
-                lidar_agent, camera_agent = self.selector.select_agent(idx)
-                lidar_agent = lidar_agent[:cav_num] # [1,0,0,1,0]
-                lidar_agent_idx = lidar_agent.nonzero()[0].tolist()
-                lidar_agent_cav_id = [cav_list[index] for index in lidar_agent_idx] # ['ego', ...]
-        
-
             # for late fusion, we also need to stack the lidar for better
             # visualization
             if self.visualize:
@@ -467,13 +447,6 @@ def getLateFusionDataset(cls):
                             }
                         }
                     )
-
-                # heterogeneous
-                if self.heterogeneous:
-                    if cav_id in lidar_agent_cav_id:
-                        output_dict[cav_id].pop('image_inputs')
-                    else:
-                        output_dict[cav_id].pop('processed_lidar')
 
                 # label dictionary
                 label_torch_dict = \

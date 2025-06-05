@@ -43,8 +43,8 @@ def getIntermediateheterFusionDataset(cls):
     cls: the Basedataset.
     """
     class IntermediateheterFusionDataset(cls):
-        def __init__(self, params, visualize, train=True):
-            super().__init__(params, visualize, train)
+        def __init__(self, params, visualize, train=True,single=False):
+            super().__init__(params, visualize, train, single)
             # intermediate and supervise single
             self.supervise_single = True if ('supervise_single' in params['model']['args'] and params['model']['args']['supervise_single']) \
                                         else False
@@ -55,7 +55,9 @@ def getIntermediateheterFusionDataset(cls):
             self.anchor_box_torch = torch.from_numpy(self.anchor_box)
 
             self.heterogeneous = True
-            self.modality_assignment = read_json(params['heter']['assignment_path'])
+            self.modality_assignment = None if ('assignment_path' not in params['heter'] or params['heter']['assignment_path'] is None) \
+                                            else read_json(params['heter']['assignment_path'])
+            
             self.ego_modality = params['heter']['ego_modality'] # "m1" or "m1&m2" or "m3"
 
             self.modality_name_list = list(params['heter']['modality_setting'].keys())
@@ -156,6 +158,11 @@ def getIntermediateheterFusionDataset(cls):
                     lidar_proj_np[:,:3] = projected_lidar
 
                     selected_cav_processed.update({'projected_lidar': lidar_proj_np})
+
+                    # 2023.8.31, to correct discretization errors. Just replace one point to avoid empty voxels. need fix later.
+                    lidar_proj_np[np.random.randint(0, lidar_proj_np.shape[0]),:3] = np.array([0,0,0]) 
+                    processed_lidar_proj = eval(f"self.pre_processor_{modality_name}").preprocess(lidar_proj_np)
+                    selected_cav_processed.update({f'processed_features_{modality_name}_proj': processed_lidar_proj})
 
                 if sensor_type == "lidar":
                     processed_lidar = eval(f"self.pre_processor_{modality_name}").preprocess(lidar_np)
@@ -320,6 +327,10 @@ def getIntermediateheterFusionDataset(cls):
 
             if self.visualize or self.kd_flag:
                 projected_lidar_stack = []
+                input_list_m1_proj = [] # 2023.8.31 to correct discretization errors with kd flag
+                input_list_m2_proj = []
+                input_list_m3_proj = []
+                input_list_m4_proj = []
 
             # loop over all CAVs to process information
             for cav_id, selected_cav_base in base_data_dict.items():
@@ -426,8 +437,12 @@ def getIntermediateheterFusionDataset(cls):
                 agent_modality_list.append(modality_name)
 
                 if self.visualize or self.kd_flag:
+                    # heterogeneous setting do not support disconet' kd
                     projected_lidar_stack.append(
                         selected_cav_processed['projected_lidar'])
+                    if sensor_type == "lidar" and self.kd_flag:
+                        eval(f"input_list_{modality_name}_proj").append(selected_cav_processed[f"processed_features_{modality_name}_proj"])
+                        
                 
                 if self.supervise_single or self.heterogeneous:
                     single_label_list.append(selected_cav_processed['single_label_dict'])
@@ -444,16 +459,6 @@ def getIntermediateheterFusionDataset(cls):
                     "single_object_bbx_center_torch": single_object_bbx_center,
                     "single_object_bbx_mask_torch": single_object_bbx_mask,
                     })
-
-            if self.kd_flag:
-                stack_lidar_np = np.vstack(projected_lidar_stack)
-                stack_lidar_np = mask_points_by_range(stack_lidar_np,
-                                            self.params['preprocess'][
-                                                'cav_lidar_range'])
-                stack_feature_processed = self.pre_processor.preprocess(stack_lidar_np)
-                processed_data_dict['ego'].update({'teacher_processed_lidar':
-                stack_feature_processed})
-
             
             # exculude all repetitve objects, DAIR-V2X
             if self.params['fusion']['dataset'] == 'dairv2x':
@@ -508,6 +513,19 @@ def getIntermediateheterFusionDataset(cls):
                     merged_image_inputs_dict = merge_features_to_dict(eval(f"input_list_{modality_name}"), merge='stack')
                     processed_data_dict['ego'].update({f'input_{modality_name}': merged_image_inputs_dict}) # maybe None
 
+            if self.kd_flag:
+                # heterogenous setting do not support DiscoNet's kd
+                # stack_lidar_np = np.vstack(projected_lidar_stack)
+                # stack_lidar_np = mask_points_by_range(stack_lidar_np,
+                #                             self.params['preprocess'][
+                #                                 'cav_lidar_range'])
+                # stack_feature_processed = self.pre_processor.preprocess(stack_lidar_np)
+                for modality_name in self.modality_name_list:
+                    processed_data_dict['ego'].update({
+                        f'input_{modality_name}_proj': merge_features_to_dict(eval(f"input_list_{modality_name}_proj")) # maybe None
+                        })
+
+
             processed_data_dict['ego'].update({'agent_modality_list': agent_modality_list})
 
             # generate targets label
@@ -552,6 +570,12 @@ def getIntermediateheterFusionDataset(cls):
             inputs_list_m2 = []
             inputs_list_m3 = []
             inputs_list_m4 = []
+
+            inputs_list_m1_proj = [] 
+            inputs_list_m2_proj = []
+            inputs_list_m3_proj = []
+            inputs_list_m4_proj = []
+
             agent_modality_list = []
             # used to record different scenario
             record_len = []
@@ -596,7 +620,11 @@ def getIntermediateheterFusionDataset(cls):
                     origin_lidar.append(ego_dict['origin_lidar'])
 
                 if self.kd_flag:
-                    teacher_processed_lidar_list.append(ego_dict['teacher_processed_lidar'])
+                    # hetero setting do not support disconet' kd
+                    # teacher_processed_lidar_list.append(ego_dict['teacher_processed_lidar'])
+                    for modality_name in self.modality_name_list:
+                        if ego_dict[f'input_{modality_name}_proj'] is not None:
+                            eval(f"inputs_list_{modality_name}_proj").append(ego_dict[f"input_{modality_name}_proj"])
 
                 ### 2022.10.10 single gt ####
                 if self.supervise_single or self.heterogeneous:
@@ -665,10 +693,14 @@ def getIntermediateheterFusionDataset(cls):
                 output_dict['ego'].update({'origin_lidar': origin_lidar})
 
             if self.kd_flag:
-                teacher_processed_lidar_torch_dict = \
-                    self.pre_processor.collate_batch(teacher_processed_lidar_list)
-                output_dict['ego'].update({'teacher_processed_lidar':teacher_processed_lidar_torch_dict})
-
+                # teacher_processed_lidar_torch_dict = \
+                #     self.pre_processor.collate_batch(teacher_processed_lidar_list)
+                # output_dict['ego'].update({'teacher_processed_lidar':teacher_processed_lidar_torch_dict})
+                for modality_name in self.modality_name_list:
+                    if len(eval(f"inputs_list_{modality_name}_proj")) != 0 and self.sensor_type_dict[modality_name] == "lidar":
+                        merged_feature_proj_dict = merge_features_to_dict(eval(f"inputs_list_{modality_name}_proj"))
+                        processed_lidar_torch_proj_dict = eval(f"self.pre_processor_{modality_name}").collate_batch(merged_feature_proj_dict)
+                        output_dict['ego'].update({f'inputs_{modality_name}_proj': processed_lidar_torch_proj_dict})
 
             if self.supervise_single  or self.heterogeneous:
                 output_dict['ego'].update({

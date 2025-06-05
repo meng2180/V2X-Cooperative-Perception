@@ -34,8 +34,8 @@ def getIntermediateFusionDataset(cls):
     cls: the Basedataset.
     """
     class IntermediateFusionDataset(cls):
-        def __init__(self, params, visualize, train=True):
-            super().__init__(params, visualize, train)
+        def __init__(self, params, visualize, train=True, single=False):
+            super().__init__(params, visualize, train, single)
             # intermediate and supervise single
             self.supervise_single = True if ('supervise_single' in params['model']['args'] and params['model']['args']['supervise_single']) \
                                         else False
@@ -44,10 +44,6 @@ def getIntermediateFusionDataset(cls):
 
             self.anchor_box = self.post_processor.generate_anchor_box()
             self.anchor_box_torch = torch.from_numpy(self.anchor_box)
-
-            self.heterogeneous = False
-            if 'heter' in params:
-                self.heterogeneous = True
 
             self.kd_flag = params.get('kd_flag', False)
 
@@ -83,6 +79,15 @@ def getIntermediateFusionDataset(cls):
             """
             selected_cav_processed = {}
             ego_pose, ego_pose_clean = ego_cav_base['params']['lidar_pose'], ego_cav_base['params']['lidar_pose_clean']
+            
+#             print('EGO_POSE:——————————————————————————————')
+            
+#             print(ego_pose)
+            
+#             print('EGO_POSE_CLEAN:——————————————————————————————')
+            
+#             print(ego_pose_clean)
+            
 
             # calculate the transformation matrix
             transformation_matrix = \
@@ -116,6 +121,11 @@ def getIntermediateFusionDataset(cls):
                     lidar_proj_np[:,:3] = projected_lidar
 
                     selected_cav_processed.update({'projected_lidar': lidar_proj_np})
+
+                    # 2023.8.31, to correct discretization errors. Just replace one point to avoid empty voxels. need fix later.
+                    lidar_proj_np[np.random.randint(0, lidar_proj_np.shape[0]),:3] = np.array([0,0,0])
+                    processed_lidar_proj = self.pre_processor.preprocess(lidar_proj_np)
+                    selected_cav_processed.update({'processed_features_proj': processed_lidar_proj})
 
                 processed_lidar = self.pre_processor.preprocess(lidar_np)
                 selected_cav_processed.update({'processed_features': processed_lidar})
@@ -275,6 +285,7 @@ def getIntermediateFusionDataset(cls):
 
             if self.visualize or self.kd_flag:
                 projected_lidar_stack = []
+                processed_features_proj = [] # 2023.8.31, to correct discretization errors
 
             # loop over all CAVs to process information
             for cav_id, selected_cav_base in base_data_dict.items():
@@ -343,20 +354,9 @@ def getIntermediateFusionDataset(cls):
             # merge preprocessed features from different cavs into the same dict
             cav_num = len(cav_id_list)
             
-            # heterogeneous 
-            if self.heterogeneous:
-                lidar_agent, camera_agent = self.selector.select_agent(idx)
-                lidar_agent = lidar_agent[:cav_num]
-                processed_data_dict['ego'].update({"lidar_agent": lidar_agent})
             
             for _i, cav_id in enumerate(cav_id_list):
                 selected_cav_base = base_data_dict[cav_id]
-
-                # dynamic object center generator! for heterogeneous input
-                if (not self.visualize) and self.heterogeneous and lidar_agent[_i]:
-                    self.generate_object_center = self.generate_object_center_lidar
-                elif (not self.visualize) and self.heterogeneous and (not lidar_agent[_i]):
-                    self.generate_object_center = self.generate_object_center_camera
 
                 selected_cav_processed = self.get_item_single_car(
                     selected_cav_base,
@@ -374,6 +374,9 @@ def getIntermediateFusionDataset(cls):
                 if self.visualize or self.kd_flag:
                     projected_lidar_stack.append(
                         selected_cav_processed['projected_lidar'])
+                    if self.kd_flag:
+                        processed_features_proj.append(
+                            selected_cav_processed['processed_features_proj'])
                 
                 if self.supervise_single:
                     single_label_list.append(selected_cav_processed['single_label_dict'])
@@ -397,8 +400,12 @@ def getIntermediateFusionDataset(cls):
                                             self.params['preprocess'][
                                                 'cav_lidar_range'])
                 stack_feature_processed = self.pre_processor.preprocess(stack_lidar_np)
-                processed_data_dict['ego'].update({'teacher_processed_lidar':
-                stack_feature_processed})
+                merged_feature_proj_dict = merge_features_to_dict(processed_features_proj)
+
+                processed_data_dict['ego'].update({
+                    'teacher_processed_lidar': stack_feature_processed,
+                    'processed_lidar_proj': merged_feature_proj_dict
+                    })
 
             
             # exclude all repetitive objects    
@@ -461,6 +468,7 @@ def getIntermediateFusionDataset(cls):
             object_bbx_mask = []
             object_ids = []
             processed_lidar_list = []
+            processed_lidar_proj_list = []
             image_inputs_list = []
             # used to record different scenario
             record_len = []
@@ -468,9 +476,6 @@ def getIntermediateFusionDataset(cls):
             lidar_pose_list = []
             origin_lidar = []
             lidar_pose_clean_list = []
-            
-            # heterogeneous
-            lidar_agent_list = []
 
             # pairwise transformation matrix
             pairwise_t_matrix_list = []
@@ -507,6 +512,7 @@ def getIntermediateFusionDataset(cls):
 
                 if self.kd_flag:
                     teacher_processed_lidar_list.append(ego_dict['teacher_processed_lidar'])
+                    processed_lidar_proj_list.append(ego_dict['processed_lidar_proj'])
 
                 ### 2022.10.10 single gt ####
                 if self.supervise_single:
@@ -516,9 +522,6 @@ def getIntermediateFusionDataset(cls):
                     object_bbx_center_single.append(ego_dict['single_object_bbx_center_torch'])
                     object_bbx_mask_single.append(ego_dict['single_object_bbx_mask_torch'])
 
-                # heterogeneous
-                if self.heterogeneous:
-                    lidar_agent_list.append(ego_dict['lidar_agent'])
 
             # convert to numpy, (B, max_num, 7)
             object_bbx_center = torch.from_numpy(np.array(object_bbx_center))
@@ -526,31 +529,13 @@ def getIntermediateFusionDataset(cls):
 
             if self.load_lidar_file:
                 merged_feature_dict = merge_features_to_dict(processed_lidar_list)
-
-                if self.heterogeneous:
-                    lidar_agent = np.concatenate(lidar_agent_list)
-                    lidar_agent_idx = lidar_agent.nonzero()[0].tolist()
-                    for k, v in merged_feature_dict.items(): # 'voxel_features' 'voxel_num_points' 'voxel_coords'
-                        merged_feature_dict[k] = [v[index] for index in lidar_agent_idx]
-
-                if not self.heterogeneous or (self.heterogeneous and sum(lidar_agent) != 0):
-                    processed_lidar_torch_dict = \
-                        self.pre_processor.collate_batch(merged_feature_dict)
-                    output_dict['ego'].update({'processed_lidar': processed_lidar_torch_dict})
+                processed_lidar_torch_dict = \
+                    self.pre_processor.collate_batch(merged_feature_dict)
+                output_dict['ego'].update({'processed_lidar': processed_lidar_torch_dict})
 
             if self.load_camera_file:
                 merged_image_inputs_dict = merge_features_to_dict(image_inputs_list, merge='cat')
-
-                if self.heterogeneous:
-                    lidar_agent = np.concatenate(lidar_agent_list)
-                    camera_agent = 1 - lidar_agent
-                    camera_agent_idx = camera_agent.nonzero()[0].tolist()
-                    if sum(camera_agent) != 0:
-                        for k, v in merged_image_inputs_dict.items(): # 'imgs' 'rots' 'trans' ...
-                            merged_image_inputs_dict[k] = torch.stack([v[index] for index in camera_agent_idx])
-                            
-                if not self.heterogeneous or (self.heterogeneous and sum(camera_agent) != 0):
-                    output_dict['ego'].update({'image_inputs': merged_image_inputs_dict})
+                output_dict['ego'].update({'image_inputs': merged_image_inputs_dict})
             
             record_len = torch.from_numpy(np.array(record_len, dtype=int))
             lidar_pose = torch.from_numpy(np.concatenate(lidar_pose_list, axis=0))
@@ -592,7 +577,14 @@ def getIntermediateFusionDataset(cls):
             if self.kd_flag:
                 teacher_processed_lidar_torch_dict = \
                     self.pre_processor.collate_batch(teacher_processed_lidar_list)
-                output_dict['ego'].update({'teacher_processed_lidar':teacher_processed_lidar_torch_dict})
+                
+                merged_feature_proj_dict = merge_features_to_dict(processed_lidar_proj_list)
+                processed_lidar_torch_proj_dict = self.pre_processor.collate_batch(merged_feature_proj_dict)
+                output_dict['ego'].update({
+                    'teacher_processed_lidar':teacher_processed_lidar_torch_dict,
+                    'processed_lidar_proj': processed_lidar_torch_proj_dict
+                })
+                
 
 
             if self.supervise_single:
@@ -607,11 +599,6 @@ def getIntermediateFusionDataset(cls):
                         },
                     "object_bbx_center_single": torch.cat(object_bbx_center_single, dim=0),
                     "object_bbx_mask_single": torch.cat(object_bbx_mask_single, dim=0)
-                })
-
-            if self.heterogeneous:
-                output_dict['ego'].update({
-                    "lidar_agent_record": torch.from_numpy(np.concatenate(lidar_agent_list)) # [0,1,1,0,1...]
                 })
 
             return output_dict
