@@ -39,22 +39,6 @@ def voc_ap(rec, prec):
 
 
 def caluclate_tp_fp_10s(det_boxes, det_score, gt_boxes, result_stat, iou_thresh):
-    """
-    Calculate the true positive and false positive numbers of the current
-    frames.
-    Parameters
-    ----------
-    det_boxes : torch.Tensor
-        The detection bounding box, shape (N, 8, 3) or (N, 4, 2).
-    det_score :torch.Tensor
-        The confidence score for each preditect bounding box.
-    gt_boxes : torch.Tensor
-        The groundtruth bounding box.
-    result_stat: dict
-        A dictionary contains fp, tp and gt number.
-    iou_thresh : float
-        The iou thresh.
-    """
     # fp, tp and gt in the current frame
     fp = []
     tp = []
