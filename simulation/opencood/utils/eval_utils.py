@@ -38,7 +38,44 @@ def voc_ap(rec, prec):
 
 
 
+def caluclate_tp_fp_10s(det_boxes, det_score, gt_boxes, result_stat, iou_thresh):
+    # fp, tp and gt in the current frame
+    fp = []
+    tp = []
+    score = []
+    gt = gt_boxes.shape[0]
+    if det_boxes is not None:
+        # convert bounding boxes to numpy array
+        det_boxes = common_utils.torch_tensor_to_numpy(det_boxes)
+        det_score = common_utils.torch_tensor_to_numpy(det_score)
+        gt_boxes = common_utils.torch_tensor_to_numpy(gt_boxes)
+        # sort the prediction bounding box by score
+        score_order_descend = np.argsort(-det_score)
+        det_score = det_score[score_order_descend] # from high to low
 
+        det_polygon_list = list(common_utils.convert_format(det_boxes))
+        gt_polygon_list = list(common_utils.convert_format(gt_boxes))
+
+        # match prediction and gt bounding box, in confidence descending order
+        for i in range(score_order_descend.shape[0]):
+            det_polygon = det_polygon_list[score_order_descend[i]]
+            ious = common_utils.compute_iou(det_polygon, gt_polygon_list)
+
+            if len(gt_polygon_list) == 0 or np.max(ious) < iou_thresh:
+                fp.append(1)
+                tp.append(0)
+                continue
+            fp.append(0)
+            tp.append(1)
+
+            gt_index = np.argmax(ious)
+            gt_polygon_list.pop(gt_index)
+        score = det_score.tolist()
+        result_stat[iou_thresh]['score'] += det_score.tolist()
+    result_stat[iou_thresh]['fp'] += fp
+    result_stat[iou_thresh]['tp'] += tp
+    result_stat[iou_thresh]['gt'] += gt
+    return tp, fp, gt, score
 
 
 def caluclate_tp_fp(det_boxes, det_score, gt_boxes, result_stat, iou_thresh):

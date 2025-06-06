@@ -5,32 +5,251 @@ This is the official implementation of paper. "When Autonomous Vehicle Meets V2X
 
 This repository contains a testing framework for Cooperative-Perception termed `V2X-Cooperative-Perception`, for evaluate the impact of imperfect cooperative perception on safety violations in autonomous driving.
 
-#### The structure of the repository
+![CL_Demo](simulation/demo/cl.gif)
+![PE_Demo](simulation/demo/pe.gif)
+
+## The structure of the repository
 ```
 V2X-Cooperative-Perception
 ├── RQ3
 ├── RQ4
 ├── scripts
 ├── simulation
+│   ├── carla_root
+│   ├── checkpoints
+│   ├── dataset
 │   ├── codriving
 │   ├── common
 │   ├── leaderboard
 │   ├── opencood
+│   │   ...
+│   │   └──tools
+│   │      ├── inference_rq1.py
+│   │      └── inference_rq2.py
 │   └── scenario_runner
 ├── spconv
 ├── README.md
 └── requirements.txt
 ```
 
-## Installation
+## Datasets
 
-#### Our working environment
+Download the dataset in the simulation/dataset folder.
+
+`dataset` folder tree :
+```
+simuilation/dataset
+. 
+├── OPV2V
+│   ├── additional
+│   ├── test
+│   ├── train
+│   └── validate
+├── OPV2V_Hetero
+│   ├── test
+│   ├── train
+│   └── validate
+└── V2XSET
+    ├── test
+    ├── train
+    └── validate
+```
+
+- OPV2V: Please refer to [this repo](https://github.com/DerrickXuNu/OpenCOOD). You also need to download `additional-001.zip` which stores data for camera modality.
+- OPV2V-H: Please download data in [Huggingface Hub](https://huggingface.co/datasets/yifanlu/OPV2V-H). Please refer to [Downloading datasets](https://huggingface.co/docs/hub/datasets-downloading) tutorial for the usage.
+- V2XSet: Please refer to [this repo](https://github.com/DerrickXuNu/v2x-vit).
+
+## Checkpoints
+Download Pre-trained Collaborative Perception Model : https://huggingface.co/gjliu/v2xverse
+
+`checkpoints` folder tree :
+```
+checkpoints
+├── early_fusion
+│   ├── perception
+│   └── planner
+├── late_fusion
+│   ├── perception
+│   └── planner
+├── fcooper
+│   ├── perception
+│   └── planner
+└── v2xvit
+    ├── perception
+    └── planner
+```
+
+## Before RQ1 / RQ2
+
+### RQ1 and RQ2 working environment
+- Ubuntu 20.04
+- Python 3.8
+- CMake 3.22.1
+- PyTorch 1.12.0
+- CUDA 11.6
+
+#### Basic Installation
+
+```
+conda create -n heal python=3.8
+conda activate heal
+# install pytorch. 
+conda create -n coalign python=3.8 pytorch==1.12.0 torchvision==0.13.0 torchaudio==0.12.0 cudatoolkit=11.6 -c pytorch -c conda-forge
+conda activate heal
+pip install spconv-cu116 # match your cudatoolkit version
+cd simulation
+```
+#### Dependency repository
+
+- [Opencood](https://github.com/DerrickXuNu/OpenCOOD)
+
+OpenCOOD is an Open Cooperative Detection framework for autonomous driving that allows users to train and test various collaborative perception models.
+
+Installation of OpenCOOD :
+```
+# Install the requirements.
+python simulation/opencood/setup.py develop
+pip install -r simulation/opencood/requirements.txt
+
+# Install bbx nms calculation cuda version
+python simulation/opencood/utils/setup.py build_ext --inplace
+```
+
+### Usage
+
+
+#### Train the model
+
+We uses yaml file to configure all the parameters for training. To train your own model from scratch or a continued checkpoint, run the following commonds:
+
+```
+python opencood/tools/train.py -y ${CONFIG_FILE} [--model_dir ${CHECKPOINT_FOLDER}]
+```
+
+Arguments Explanation:
+
+- `-y` or `hypes_yaml` : the path of the training configuration file, e.g. `opencood/hypes_yaml/opv2v/LiDAROnly/lidar_fcooper.yaml`, meaning you want to train a FCooper model. We elaborate each entry of the yaml in the exemplar config file `opencood/hypes_yaml/exemplar.yaml`.
+- `model_dir` (optional) : the path of the checkpoints. This is used to fine-tune or continue-training. When the `model_dir` is given, the trainer will discard the `hypes_yaml` and load the `config.yaml` in the checkpoint folder. In this case, ${CONFIG_FILE} can be `None`,
+
+#### Train the model in DDP
+
+```
+CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch  --nproc_per_node=2 --use_env opencood/tools/train_ddp.py -y ${CONFIG_FILE} [--model_dir ${CHECKPOINT_FOLDER}]
+```
+
+`--nproc_per_node` indicate the GPU number you will use.
+
+#### Test the model
+
+```
+python opencood/tools/inference.py --model_dir ${CHECKPOINT_FOLDER} [--fusion_method intermediate]
+```
+
+- `inference.py` has more optional args, you can inspect into this file.
+- `[--fusion_method intermediate]`the default fusion method is intermediate fusion. According to your fusion strategy in training, available fusion_method can be:
+  - **single**: only ego agent's detection, only ego's gt box. *[only for late fusion dataset]*
+  - **no**: only ego agent's detection, all agents' fused gt box. *[only for late fusion dataset]*
+  - **late**: late fusion detection from all agents, all agents' fused gt box. *[only for late fusion dataset]*
+  - **early**: early fusion detection from all agents, all agents' fused gt box. *[only for early fusion dataset]*
+  - **intermediate**: intermediate fusion detection from all agents, all agents' fused gt box. *[only for intermediate fusion dataset]*
+
+### For RQ1
+
+```
+python opencood/tools/inference_rq1.py --model_dir ${CHECKPOINT_FOLDER} [--fusion_method intermediate]
+```
+
+- `inference_rq1.py` has more optional args, you can inspect into this file.
+- `[--fusion_method intermediate]` the default fusion method is intermediate fusion. According to your fusion strategy in training, available fusion_method can be:
+  - **single**: only ego agent's detection, only ego's gt box. *[only for late fusion dataset]*
+  - **no**: only ego agent's detection, all agents' fused gt box. *[only for late fusion dataset]*
+  - **late**: late fusion detection from all agents, all agents' fused gt box. *[only for late fusion dataset]*
+  - **early**: early fusion detection from all agents, all agents' fused gt box. *[only for early fusion dataset]*
+  - **intermediate**: intermediate fusion detection from all agents, all agents' fused gt box. *[only for intermediate fusion dataset]*
+
+### For RQ2
+
+```
+python opencood/tools/inference_rq2.py --model_dir ${CHECKPOINT_FOLDER} [--fusion_method intermediate] --mode [cv/inf]
+```
+
+- `inference_rq2.py` has more optional args, you can inspect into this file.
+- `[--fusion_method intermediate]` the default fusion method is intermediate fusion. According to your fusion strategy in training, available fusion_method can be:
+  - **single**: only ego agent's detection, only ego's gt box. *[only for late fusion dataset]*
+  - **no**: only ego agent's detection, all agents' fused gt box. *[only for late fusion dataset]*
+  - **late**: late fusion detection from all agents, all agents' fused gt box. *[only for late fusion dataset]*
+  - **early**: early fusion detection from all agents, all agents' fused gt box. *[only for early fusion dataset]*
+  - **intermediate**: intermediate fusion detection from all agents, all agents' fused gt box. *[only for intermediate fusion dataset]*
+-  `--mode` specifies the type of cooperative agent, where `cv` stands for cooperative vehicle and `inf` stands for cooperative infrastructure.
+
+### Output Format
+
+The information such as model type and evaluation range will be recorded in the file name.
+
+#### RQ1
+
+```yaml
+AP_50: 
+CADE_50: 
+CCLE_50: 
+CCME_50: 
+FN_50: 
+FP_50: 
+GT_50:
+LADE_50:
+LCLE_50:
+LCME_50:
+TP_50:
+```
+
+#### RQ2
+
+```yaml
+AP_50: 
+CADE_long_50: 
+CADE_mid_50: 
+CADE_short_50: 
+CCLE_long_50: 
+CCLE_mid_50: 
+CCLE_short_50: 
+CCME_long_50: 
+CCME_mid_50: 
+CCME_short_50: 
+FN_50: 
+FP_50: 
+GT_50: 
+LADE_long_50: 
+LADE_mid_50: 
+LADE_short_50:
+LCLE_long_50: 
+LCLE_mid_50: 
+LCLE_short_50: 
+LCME_long_50: 
+LCME_mid_50: 
+LCME_short_50: 
+TP_50:
+```
+
+
+## Before RQ3 / RQ4
+
+### RQ3 and RQ4 working environment
 - Ubuntu 20.04
 - Python 3.7
 - CMake 3.22.1
 - PyTorch 1.10.1
 - CUDA 11.3
 - Carla 0.9.10.1
+
+#### Basic Installation
+
+```
+conda create -n v2x-cp python=3.7 cmake=3.22.1
+conda activate v2x-cp
+# install pytorch. 
+conda install pytorch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 cudatoolkit=11.3 -c pytorch -c conda-forge
+conda install cudnn -c conda-forge
+```
 
 #### Dependency repository
 
@@ -57,17 +276,10 @@ cd ../..
 
 Spconv is a spatially sparse convolution library for generate voxel features in perception module. Please [click here]( https://github.com/traveller59/spconv/tree/v1.2.1) for the installation of Spconv (1.2.1).
 
-- [Opencood](https://github.com/DerrickXuNu/OpenCOOD)
-
-OpenCOOD is an Open Cooperative Detection framework for autonomous driving that allows users to train and test various collaborative perception models.
-
-Installation of OpenCOOD :
+- Opencood
 ```
-# Install the requirements.
 python simulation/opencood/setup.py develop
 pip install -r simulation/opencood/requirements.txt
-
-# Install bbx nms calculation cuda version
 python simulation/opencood/utils/setup.py build_ext --inplace
 ```
 
@@ -78,27 +290,7 @@ pip install -r simulation/requirements.txt
 
 ## Usage
 
-#### Checkpoints
-Download Pre-trained Collaborative Perception Model : https://huggingface.co/gjliu/v2xverse
-
-`checkpoints` folder tree :
-```
-checkpoints
-├── early_fusion
-│   ├── perception
-│   └── planner
-├── late_fusion
-│   ├── perception
-│   └── planner
-├── fcooper
-│   ├── perception
-│   └── planner
-├── v2xvit
-│   ├── perception
-└── └── planner
-```
-
-#### Before RQ3 / RQ4
+#### Start the Carla Server
 This step will run the carla server to start the online evaluation.
 ```
 bash scripts/running_carla.sh
@@ -128,15 +320,15 @@ optional arguments:
 ```
 
 #### For RQ4
-RQ4 seeks to evaluate the extent to which communication issues (e.g., time delay and positioning error) encountered during online deployment diminish the effectiveness of cooperative perception systems.
+RQ4 seeks to evaluate the extent to which communication issues (e.g. Communication Latency and Pose error) encountered during online deployment diminish the effectiveness of cooperative perception systems.
 
 Output the `results_(latency, noise)/(early_fusion, late_fusion, fcooper, v2xvit)`
 ```
-# Imitates the network communication delay.
-bash RQ4/rq4_latency.sh 0 40000 early_fusion early_5_10 1
+# Imitates the network communication latency.
+bash RQ4/rq4_cl.sh 0 40000 early_fusion early_5_10 1
 
-# Imitates the positioning error of agents.
-bash RQ4/rq4_noise.sh 0 40000 early_fusion early_5_10 1
+# Imitates the pose error of agents.
+bash RQ4/rq4_pe.sh 0 40000 early_fusion early_5_10 1
 ```
 
 ## Acknowledgements

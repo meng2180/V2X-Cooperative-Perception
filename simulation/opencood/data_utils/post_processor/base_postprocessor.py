@@ -350,7 +350,7 @@ class BasePostprocessor(object):
         # tmp_object_dict = {}
         tmp_object_list = []
         cav_content = cav_contents[0]
-        tmp_object_list = cav_content['params']['vehicles'] #世界坐标系下
+        tmp_object_list = cav_content['params']['vehicles']
 
         output_dict = {}
         filter_range = self.params['anchor_args']['cav_lidar_range']
@@ -399,7 +399,7 @@ class BasePostprocessor(object):
         # tmp_object_dict = {}
         tmp_object_list = []
         cav_content = cav_contents[0]
-        tmp_object_list = cav_content['params'][f'vehicles{suffix}'] # ego 坐标系下
+        tmp_object_list = cav_content['params'][f'vehicles{suffix}']
 
         output_dict = {}
         filter_range = self.params['anchor_args']['cav_lidar_range']
@@ -450,7 +450,7 @@ class BasePostprocessor(object):
         # tmp_object_dict = {}
         tmp_object_list = []
         cav_content = cav_contents[0]
-        tmp_object_list = cav_content['params'][f'vehicles{suffix}'] # ego 坐标系下
+        tmp_object_list = cav_content['params'][f'vehicles{suffix}']
 
         output_dict = {}
         filter_range = self.params['anchor_args']['cav_lidar_range']

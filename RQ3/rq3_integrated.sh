@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
 # Route_id: simulation/leaderboard/data/evaluation_routes/town05_short_r${route_id}.xml
-# Method_tag：codriving, v2xvit, late_fusion, ...
+# CP_model：v2xvit, late_fusion, ...
 # Agent_config: simulation/leaderboard/team_code/agent_config/pnp_config_${Agent_config}.yaml
 # Scenario_config: simulation/leaderboard/leaderboard/scenarios/scenario_parameter_${Scenario_config}.yaml
 
 # Evaluation on one route
-# bash RQ3/rq3.sh ${Route_id} ${Carla_port} ${Method_tag} ${Repeat_id} ${Agent_config} ${Scenario_config}
+# bash RQ3/rq3.sh ${Route_id} ${Carla_port} ${CP_model} ${Agent_config} ${Scenario_config}
 
 ###start
 # bash RQ3/rq3.sh 0 40000 v2xvit 1 v2xvit_5_10 1
