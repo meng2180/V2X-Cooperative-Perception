@@ -102,14 +102,7 @@ class BasePostprocessor(object):
         gt_box3d_np = box_utils.mask_boxes_outside_range_numpy(gt_box3d_np,
                                                     self.params['gt_range'],
                                                     order=None)
-        try:
-            gt_box3d_tensor = torch.from_numpy(gt_box3d_np).to(device=gt_box3d_list.device)
-        except:
-            print('load gt_box3d_tensor failed')
-            if len(gt_box3d_list)>0:
-                gt_box3d_tensor = torch.from_numpy(gt_box3d_np).to(device=gt_box3d_list[0].device)
-            else:
-                gt_box3d_tensor = None
+        gt_box3d_tensor = torch.from_numpy(gt_box3d_np).to(device=gt_box3d_list.device)
 
         return gt_box3d_tensor
 
@@ -209,7 +202,7 @@ class BasePostprocessor(object):
     def generate_object_center(self,
                                cav_contents,
                                reference_lidar_pose,
-                               enlarge_z=False):
+                               enlarge_z=True):
         """
         Retrieve all objects in a format of (n, 7), where 7 represents
         x, y, z, l, w, h, yaw or x, y, z, h, w, l, yaw.
@@ -357,7 +350,7 @@ class BasePostprocessor(object):
         # tmp_object_dict = {}
         tmp_object_list = []
         cav_content = cav_contents[0]
-        tmp_object_list = cav_content['params']['vehicles'] #世界坐标系下
+        tmp_object_list = cav_content['params']['vehicles']
 
         output_dict = {}
         filter_range = self.params['anchor_args']['cav_lidar_range']
@@ -406,7 +399,7 @@ class BasePostprocessor(object):
         # tmp_object_dict = {}
         tmp_object_list = []
         cav_content = cav_contents[0]
-        tmp_object_list = cav_content['params'][f'vehicles{suffix}'] # ego 坐标系下
+        tmp_object_list = cav_content['params'][f'vehicles{suffix}']
 
         output_dict = {}
         filter_range = self.params['anchor_args']['cav_lidar_range']
@@ -457,7 +450,7 @@ class BasePostprocessor(object):
         # tmp_object_dict = {}
         tmp_object_list = []
         cav_content = cav_contents[0]
-        tmp_object_list = cav_content['params'][f'vehicles{suffix}'] # ego 坐标系下
+        tmp_object_list = cav_content['params'][f'vehicles{suffix}']
 
         output_dict = {}
         filter_range = self.params['anchor_args']['cav_lidar_range']

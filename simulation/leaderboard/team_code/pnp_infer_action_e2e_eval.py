@@ -54,7 +54,7 @@ from opencood.utils import box_utils as box_utils
 ####### Generate the action with the trained model.
 
 SAVE_PATH = os.environ.get("SAVE_PATH", 'eval')
-os.environ["SDL_VIDEODRIVER"] = "dummy"
+# os.environ["SDL_VIDEODRIVER"] = "dummy"
 
 
 def calculation_error(infer_result, Mis_error):

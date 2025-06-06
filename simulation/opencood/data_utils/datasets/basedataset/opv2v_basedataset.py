@@ -18,10 +18,12 @@ from opencood.data_utils.pre_processor import build_preprocessor
 from opencood.data_utils.post_processor import build_postprocessor
 
 class OPV2VBaseDataset(Dataset):
-    def __init__(self, params, visualize, train=True):
+    def __init__(self, params, visualize, train=True, single=False):
         self.params = params
         self.visualize = visualize
         self.train = train
+        self.single = single
+        self.use_hdf5 = True
 
         self.pre_processor = build_preprocessor(params["preprocess"], train)
         self.post_processor = build_postprocessor(params["postprocess"], train)
@@ -70,9 +72,8 @@ class OPV2VBaseDataset(Dataset):
         scenario_folders = sorted([os.path.join(root_dir, x)
                                    for x in os.listdir(root_dir) if
                                    os.path.isdir(os.path.join(root_dir, x))])
-
+        
         self.scenario_folders = scenario_folders
-
         self.reinitialize()
 
 
@@ -85,6 +86,7 @@ class OPV2VBaseDataset(Dataset):
         # loop over all scenarios
         for (i, scenario_folder) in enumerate(self.scenario_folders):
             self.scenario_database.update({i: OrderedDict()})
+            print(self.scenario_folders)
 
             # at least 1 cav should show up
             if self.train:
@@ -110,9 +112,23 @@ class OPV2VBaseDataset(Dataset):
             """
             make the first cav to be ego modality
             """
+            print(self.single)
             if getattr(self, "heterogeneous", False):
                 scenario_name = scenario_folder.split("/")[-1]
-                cav_list = self.adaptor.reorder_cav_list(cav_list, scenario_name)
+                cav_list = self.adaptor.reorder_cav_list(cav_list, scenario_name,self.single)
+            print(cav_list)
+            
+            # single
+            if self.single and  not self.train:
+                cav_list = cav_list[:1]
+                    
+                print("——————CAVLIST———————————")
+                print(cav_list)
+                print("————————————————————————")
+            else:
+                print("not SINGLE")
+                
+                
 
 
             # loop over all CAV data
@@ -146,6 +162,7 @@ class OPV2VBaseDataset(Dataset):
                                                 timestamp)
                     depth_files = self.find_camera_files(cav_path, 
                                                 timestamp, sensor="depth")
+                    depth_files = [depth_file.replace("OPV2V", "OPV2V_Hetero") for depth_file in depth_files]
 
                     self.scenario_database[i][cav_id][timestamp]['yaml'] = \
                         yaml_file
@@ -189,7 +206,7 @@ class OPV2VBaseDataset(Dataset):
                         self.len_record.append(prev_last + len(timestamps))
                 else:
                     self.scenario_database[i][cav_id]['ego'] = False
-
+        print("len:", self.len_record[-1])
 
     def retrieve_base_data(self, idx):
         """
@@ -238,13 +255,15 @@ class OPV2VBaseDataset(Dataset):
             # load camera file: hdf5 is faster than png
             hdf5_file = cav_content[timestamp_key]['cameras'][0].replace("camera0.png", "imgs.hdf5")
 
-            if os.path.exists(hdf5_file):
+            if self.use_hdf5 and os.path.exists(hdf5_file):
                 with h5py.File(hdf5_file, "r") as f:
                     data[cav_id]['camera_data'] = []
                     data[cav_id]['depth_data'] = []
                     for i in range(4):
-                        data[cav_id]['camera_data'].append(Image.fromarray(f[f'camera{i}'][()]))
-                        data[cav_id]['depth_data'].append(Image.fromarray(f[f'depth{i}'][()]))
+                        if self.load_camera_file:
+                            data[cav_id]['camera_data'].append(Image.fromarray(f[f'camera{i}'][()]))
+                        if self.load_depth_file:
+                            data[cav_id]['depth_data'].append(Image.fromarray(f[f'depth{i}'][()]))
             else:
                 if self.load_camera_file:
                     data[cav_id]['camera_data'] = \

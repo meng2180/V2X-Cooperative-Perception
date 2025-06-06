@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Author: Runsheng Xu <rxx3386@ucla.edu>, Hao Xiang <haxiang@g.ucla.edu>,
+# Author: Yifan Lu <yifan_lu@sjtu.edu.cn>, Runsheng Xu <rxx3386@ucla.edu>, Hao Xiang <haxiang@g.ucla.edu>,
 # License: TDG-Attribution-NonCommercial-NoDistrib
 
 
@@ -411,6 +411,12 @@ def mask_boxes_outside_range_numpy(boxes, limit_range, order,
     new_boxes = boxes.copy()
     if boxes.shape[1] == 7:
         new_boxes = boxes_to_corners_3d(new_boxes, order)
+        
+    minz = -30
+    maxz = 30
+    limit_range[2]=minz
+    limit_range[5]=maxz
+    
 
     mask = ((new_boxes >= limit_range[0:3]) &
             (new_boxes <= limit_range[3:6])).all(axis=2)
@@ -453,7 +459,7 @@ def project_world_objects(object_dict,
                           lidar_pose,
                           lidar_range,
                           order,
-                          enlarge_z=False):
+                          enlarge_z=True):
     """
     Project the objects under world coordinates into another coordinate
     based on the provided extrinsic.
@@ -498,12 +504,15 @@ def project_world_objects(object_dict,
         bbx_lidar = np.dot(object2lidar, bbx).T
         bbx_lidar = np.expand_dims(bbx_lidar[:, :3], 0)
         bbx_lidar = corner_to_center(bbx_lidar, order=order)
+        
 
         if enlarge_z:
             lidar_range_z_larger = copy.deepcopy(lidar_range)
             lidar_range_z_larger[2] -= 10
             lidar_range_z_larger[5] += 10
             lidar_range = lidar_range_z_larger
+#             print("ENLARGE_ZZZZZZZZZZZZZZZ")
+#             print(lidar_range)
         
         bbx_lidar = mask_boxes_outside_range_numpy(bbx_lidar,
                                                    lidar_range,
@@ -885,8 +894,7 @@ def remove_bbx_abnormal_z(bbx_3d):
     """
     bbx_z_min = torch.min(bbx_3d[:, :, 2], dim=1)[0]
     bbx_z_max = torch.max(bbx_3d[:, :, 2], dim=1)[0]
-    # NOTE gjliu: (-3, 5) -> (-100, 100)
-    index = torch.logical_and(bbx_z_min >= -100, bbx_z_max <= 100)
+    index = torch.logical_and(bbx_z_min >= -30, bbx_z_max <= 10)
 
     return index
 
@@ -1101,8 +1109,8 @@ def project_world_objects_dairv2x(object_list,
         corners_lidar = (world_to_lidar @ corners_world_homo.T).T 
 
         lidar_range_z_larger = copy.deepcopy(lidar_range)
-        lidar_range_z_larger[2] -= 1
-        lidar_range_z_larger[5] += 1
+        lidar_range_z_larger[2] -= 100
+        lidar_range_z_larger[5] += 100
 
         bbx_lidar = corners_lidar
         bbx_lidar = np.expand_dims(bbx_lidar[:, :3], 0) # [1, 8, 3]
