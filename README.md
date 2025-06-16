@@ -60,23 +60,28 @@ simuilation/dataset
 - V2XSet: Please refer to [this repo](https://github.com/DerrickXuNu/v2x-vit).
 
 ## Checkpoints
-Download Pre-trained Collaborative Perception Model : https://huggingface.co/gjliu/v2xverse
+Download Pre-trained Collaborative Perception Model : https://huggingface.co/pangdudu/V2X-Cooperative-Perception
 
 `checkpoints` folder tree :
 ```
 checkpoints
-├── early_fusion
-│   ├── perception
-│   └── planner
-├── late_fusion
-│   ├── perception
-│   └── planner
-├── fcooper
-│   ├── perception
-│   └── planner
-└── v2xvit
-    ├── perception
-    └── planner
+├── RQ1
+│   ├── opv2v_camera_attfuse
+│   ...
+│   ├── opv2v_lidar_attfuse
+│   ...
+│   └── opv2v_lidarcamera_attfuse
+├── RQ2
+│   ...
+│   └── v2xset_attfuse
+└── RQ3&RQ4
+    ├── early_fusion
+    │   ├── perception
+    │   └── planner
+    ├── late_fusion
+    ├── fcooper
+    └── v2xvit
+
 ```
 
 ## Before RQ1 / RQ2
