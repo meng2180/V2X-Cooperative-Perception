@@ -8,6 +8,7 @@ This repository contains a testing framework for Cooperative-Perception termed `
 ![CL_Demo](simulation/demo/cl.gif)
 ![PE_Demo](simulation/demo/pe.gif)
 
+- [Supplementary Website](https://sites.google.com/view/v2x-empirical)
 ## The structure of the repository
 ```
 V2X-Cooperative-Perception
@@ -57,10 +58,11 @@ simuilation/dataset
 
 - OPV2V: Please refer to [this repo](https://github.com/DerrickXuNu/OpenCOOD). You also need to download `additional-001.zip` which stores data for camera modality.
 - OPV2V-H: Please download data in [Huggingface Hub](https://huggingface.co/datasets/yifanlu/OPV2V-H). Please refer to [Downloading datasets](https://huggingface.co/docs/hub/datasets-downloading) tutorial for the usage.
-- V2XSet: Please refer to [this repo](https://github.com/DerrickXuNu/v2x-vit).
+- V2XSet: For the complete dataset, Please refer to [this repo](https://github.com/DerrickXuNu/v2x-vit).
+- V2XSet-part: Experimental data in RQ2, Please refer to [this repo](https://huggingface.co/datasets/pangdudu/V2X-Cooperative-Perception).
 
 ## Checkpoints
-Download Pre-trained Collaborative Perception Model : https://huggingface.co/pangdudu/V2X-Cooperative-Perception
+- [Download Pre-trained Collaborative Perception Model](https://huggingface.co/pangdudu/V2X-Cooperative-Perception)
 
 `checkpoints` folder tree :
 ```
