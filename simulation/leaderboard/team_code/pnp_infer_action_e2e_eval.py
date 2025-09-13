@@ -32,7 +32,7 @@ from agents.navigation.local_planner import RoadOption
 
 from team_code.v2x_controller import V2X_Controller
 from team_code.eval_utils import turn_traffic_into_bbox_fast
-from team_code.render_v2x import render, render_self_car, render_waypoints
+from team_code.render_v2x import render, render_self_car, render_waypoints	# 渲染
 from team_code.v2x_utils import (generate_relative_heatmap, 
 				 generate_heatmap, generate_det_data,
 				 get_yaw_angle, boxes_to_corners_3d, get_points_in_rotated_box_3d  # visibility related functions
@@ -46,7 +46,11 @@ from opencood.visualization import vis_utils, my_vis, simple_vis_multiclass, sim
 from opencood.utils import eval_utils
 from opencood.utils import common_utils
 
-
+# '''获取点云数据(用于对比latency, pose error)'''
+# from opencood.utils.pcd_utils import (
+#     mask_ego_points_v2,
+#     shuffle_points
+# )
 from opencood.utils.transformation_utils import x1_to_x2
 from opencood.utils import box_utils as box_utils
 ####### Input: raw_data, N(actor)+M(RSU)
@@ -61,14 +65,19 @@ def calculation_error(infer_result, Mis_error):
 	
 	iou_list = [0.5, 0.5, 0,5]
 	for c in range(3):
-
+		# Convert border to numpy array
 		cp_det_boxes = common_utils.torch_tensor_to_numpy(infer_result['pred_box_tensor'][c])
 		# det_score = common_utils.torch_tensor_to_numpy(infer_result['pred_score'][c])
 		gt_boxes = common_utils.torch_tensor_to_numpy(infer_result['gt_box_tensor'][c])
 		ego_det_boxes = common_utils.torch_tensor_to_numpy(infer_result['ego_pred_box_tensor'][c])
-
+		# ego = ego_det_boxes.shape[0]
 		gt = gt_boxes.shape[0]
+		# cp = cp_det_boxes.shape[0]
+		# if c == 1:
+		# 	print(f"cp: {cp},gt: {gt}")
+		# print(f"class:{c}, ego: {ego}, cp: {cp}, gt: {gt}")
 
+		# Convert the box to polygon format
 		cp_det_polygon_list = list(common_utils.convert_format(cp_det_boxes))
 		gt_polygon_list = list(common_utils.convert_format(gt_boxes))
 		ego_det_polygon_list = list(common_utils.convert_format(ego_det_boxes))
@@ -76,6 +85,7 @@ def calculation_error(infer_result, Mis_error):
 		for i in range(gt):
 			gt_polygon = gt_polygon_list[i]
 			if Detected_bounding_box(gt_polygon, ego_det_polygon_list, iou_list[c]):
+				# LCME
 				if Detected_iou(gt_polygon, cp_det_polygon_list, iou_thresh = 0):
 					Mis_error["LCME"] += 1
 				elif Detected_iou(gt_polygon, cp_det_polygon_list, iou_thresh = iou_list[c], iou_min=0):
@@ -95,18 +105,18 @@ def calculation_error(infer_result, Mis_error):
 					Mis_error["CADE"] += 1
 		Mis_error["GT"] += gt
 
-
+# Calculate whether IoU is within a certain threshold
 def Detected_iou(gt_polygon, det_polygon_list, iou_thresh=0, iou_min=-1):
 	ious = common_utils.compute_iou(gt_polygon, det_polygon_list)
 	max_iou = np.max(ious, initial=0.0)
-	if max_iou > iou_min and max_iou <= iou_thresh:
+	if max_iou > iou_min and max_iou <= iou_thresh:  # Match successful
 		return True
 	return False
 
-
+# Calculate whether there is a correct predicted box for detecting GT in ego
 def Detected_bounding_box(gt_polygon, det_polygon_list, iou_thresh):
 	ious = common_utils.compute_iou(gt_polygon, det_polygon_list)
-	if len(det_polygon_list) == 0 or np.max(ious) <= iou_thresh:
+	if len(det_polygon_list) == 0 or np.max(ious) <= iou_thresh:  # Failed to match
 		return False
 	return True
 
@@ -157,27 +167,12 @@ class DisplayInterface(object):
 	def run_interface(self, input_data):
 		rgb = input_data['rgb']
 		map = input_data['map']
-		lidar = input_data['lidar']
-		surface = np.zeros((600, 2300, 3),np.uint8)
+		# lidar = input_data['lidar']
+		surface = np.zeros((600, 1100, 3),np.uint8) # np.zeros((600, 2300, 3),np.uint8)
 		surface[:, :800] = rgb
-		surface[:,800:1400] = lidar
-		surface[:,1400:2000] = input_data['lidar_rsu']
-		surface[:,2000:2300] = map 
-		surface[:150,:200] = input_data['rgb_left']
-		surface[:150, 600:800] = input_data['rgb_right']
-		surface[:150, 325:475] = input_data['rgb_focus']
-		surface = cv2.putText(surface, input_data['control'], (20,580), cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,255), 1)
-		surface = cv2.putText(surface, input_data['meta_infos'][1], (20,560), cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,255), 1)
-		surface = cv2.putText(surface, input_data['meta_infos'][2], (20,540), cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,255), 1)
-		surface = cv2.putText(surface, input_data['time'], (20,520), cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,255), 1)
-
-		surface = cv2.putText(surface, 'Left  View', (40,135), cv2.FONT_HERSHEY_SIMPLEX,0.75,(0,0,0), 2)
-		surface = cv2.putText(surface, 'Focus View', (335,135), cv2.FONT_HERSHEY_SIMPLEX,0.75,(0,0,0), 2)
-		surface = cv2.putText(surface, 'Right View', (640,135), cv2.FONT_HERSHEY_SIMPLEX,0.75,(0,0,0), 2)
-
+		surface[:,800:1100] = map # surface[:,2000:2300]
 		surface[:, 798:802] = 255
-		surface[:, 1398:1402] = 255
-		surface[:, 1998:2002] = 255
+
 
 
 		# display image
@@ -458,7 +453,7 @@ class PnP_infer():
 		self.infer_result_eval = []
 		self.eval_step = 0
 		self.t = [False ,0, 0, 0, 0]
-
+		# self.fault = False
 		self.mis_error_path = None
 		self.bbox_saver = None
 	
@@ -474,8 +469,8 @@ class PnP_infer():
 		}
 		self.voxel_preprocess = SpVoxelPreprocessor(voxel_args, train=False)
 	
-		# # opencood.models.***
-		self.perception_model = perception_model
+		# # opencood.models.***(center_point_codriving)
+		self.perception_model = perception_model #perception
 		# planning_model = codriving/models/planning_end2end.py(WaypointPlanner_e2e)
 		self.planning_model = planning_model
 		# perception_dataloader = *****Dataset, e.g(IntermediatemulticlassFusionDataset)
@@ -540,10 +535,11 @@ class PnP_infer():
 		controll_all: list, detailed actions for N cars.
 		'''
 		ego_pred_box_tensor_list = []
+		## communication latency
 		if 'comm_latency' in self.config['simulation']:
 			raw_data_dict = {'car_data': car_data_raw, 
 							'rsu_data': rsu_data_raw}
-			self.pre_raw_data_bank.update({step: raw_data_dict})	
+			self.pre_raw_data_bank.update({step: raw_data_dict})
 			latency_step = self.config['simulation']['comm_latency']
 			sorted_keys = sorted(list(self.pre_raw_data_bank.keys()))
 			if step > latency_step:
@@ -568,22 +564,16 @@ class PnP_infer():
 		actors_data = self.collect_actor_data()
 		for data in car_data_raw + rsu_data_raw:
 			data['actors_data'] = actors_data
-
-
+		##########################################
 		batch_data = self.collate_batch_infer_perception(car_data, rsu_data)  # batch_size: N*(N+M)
 		extra_source['car_data'] = car_data_raw
 		extra_source['rsu_data'] = rsu_data_raw
 
 		data = self.perception_dataloader.__getitem__(idx=None, extra_source=extra_source)
 		batch_data_perception = [data]
-		batch_data_perception = self.perception_dataloader.collate_batch_test(batch_data_perception, online_eval_only=False) # 在线评估 原：online_eval_only=True
+		batch_data_perception = self.perception_dataloader.collate_batch_test(batch_data_perception, online_eval_only=False) # online_eval_only=True
 		batch_data_perception = train_utils.to_device(batch_data_perception, self.device)
 
-		# infer_result = inference_utils.inference_intermediate_fusion_multiclass(batch_data_perception,
-		# 												self.perception_model,
-		# 												self.perception_dataloader,
-		# 												online_eval_only=False)	
-		
 		ego_pred_box_tensor_list =  get_no_cooperation_perception(perception_dataloader = copy.deepcopy(self.perception_dataloader),
 															perception_model = self.perception_model,
 															device = self.device,
@@ -591,15 +581,23 @@ class PnP_infer():
 
 
 		############## end2end output ###########################
-		output_dict = OrderedDict()	
+		output_dict = OrderedDict()
+
 		for cav_id, cav_content in batch_data_perception.items():
 			output_dict[cav_id] = self.perception_model(cav_content)
 		
 		pred_box_tensor, pred_score, gt_box_tensor = \
 			self.perception_dataloader.post_process_multiclass(batch_data_perception,
-								output_dict, online_eval_only=False) 
-		
-
+								output_dict, online_eval_only=False) # online_eval_only = True	
+		'''
+		####### no_fusion
+		# output_dict only contains ego
+		output_dict['ego'] = self.perception_model(batch_data_perception['ego'])
+		# but batch_data havs all cavs, because we need the gt box inside.
+		pred_box_tensor, pred_score, gt_box_tensor = \
+			self.perception_dataloader.post_process_multiclass_no_fusion(batch_data_perception,  # only for late fusion dataset
+									output_dict, online_eval_only=False)
+		'''
 		pred_box_tensor_eval = copy.deepcopy(pred_box_tensor)
 		gt_box_tensor_eval = copy.deepcopy(gt_box_tensor) 
 		pred_score_eval = copy.deepcopy(pred_score) 
@@ -640,18 +638,19 @@ class PnP_infer():
 			self.mis_error_path = os.path.join(self.save_path,"Error.json")
 
 
-		bbox_folder_path = os.path.join(folder_path, 'birdview')
-		if not os.path.exists(bbox_folder_path):
-			os.mkdir(bbox_folder_path)
-		if step % self.skip_frames == 0:
-			vis_save_path = os.path.join(bbox_folder_path, 'bev_%05d.png' % step)
-			simple_vis_multiclass_ego.visualize(copy.deepcopy(infer_result_eval_vis),
-								batch_data_perception['ego']['origin_lidar'][0],
-								self.config['perception']['perception_hypes']['postprocess']['gt_range'],
-								vis_save_path,
-								method='bev',
-								left_hand=False)
-
+		################# Visualize ego, cp, gt ###########################
+		# bbox_folder_path = os.path.join(folder_path, 'birdview')
+		# if not os.path.exists(bbox_folder_path):
+		# 	os.mkdir(bbox_folder_path)
+		# if step % self.skip_frames == 0:
+		# 	vis_save_path = os.path.join(bbox_folder_path, 'bev_%05d.png' % step)
+		# 	simple_vis_multiclass_ego.visualize(copy.deepcopy(infer_result_eval_vis),
+		# 						batch_data_perception['ego']['origin_lidar'][0],
+		# 						self.config['perception']['perception_hypes']['postprocess']['gt_range'],
+		# 						vis_save_path,
+		# 						method='bev',
+		# 						left_hand=False)
+		############################################################
 		### filte out ego box
 		if not infer_result['pred_box_tensor'] is None:
 			if len(infer_result['pred_box_tensor']) > 0:
@@ -666,10 +665,10 @@ class PnP_infer():
 			for i in range(num_object):
 				transformed_box = transform_2d_points(
 						infer_result['pred_box_tensor'][i].cpu().numpy(),
-						np.pi/2 - measurements["theta"],
+						np.pi/2 - measurements["theta"], # car1_to_world parameters
 						measurements["lidar_pose_y"],
 						measurements["lidar_pose_x"],
-						np.pi/2 - measurements["theta"],
+						np.pi/2 - measurements["theta"], # car2_to_world parameters, note that not world_to_car2
 						measurements["y"],
 						measurements["x"],
 					)
@@ -737,6 +736,7 @@ class PnP_infer():
 	
 	def generate_planning_input(self):
 		
+		# occ_final，shape [N, 5, 6, 192, 96]
 		occ_final = torch.zeros(self.ego_vehicles_num, 5, 6, 192, 96).cuda().float()
 		# N, T, C, H, W
 
@@ -761,13 +761,13 @@ class PnP_infer():
 			coordinate_map[:, 1, :, w] *= w*self.det_range[-1]-self.det_range[2]
 		coordinate_map = coordinate_map.cuda().float()
 
-		occ_to_warp = torch.zeros(self.ego_vehicles_num, 5, 2, 192, 96).cuda().float()
+		occ_to_warp = torch.zeros(self.ego_vehicles_num, 5, 2, 192, 96).cuda().float() # [N, 5, 2, 192, 96]
 		# B, T, 2, H, W
 		occ_to_warp[:, :, 1:2] = occ_ego_temp
 		det_map_pose = torch.zeros(self.ego_vehicles_num, 5, 3).cuda().float()
 
 		##################  end2end feature #####################
-		feature_dim = self.perception_memory_bank[0]['feature'].shape[1] # 128,256 
+		feature_dim = self.perception_memory_bank[0]['feature'].shape[1] # 128,256
 		feature_to_warp = torch.zeros(self.ego_vehicles_num, 5, feature_dim, 192, 96).cuda().float()	# [N, 5, feature_dim, 192, 96]
 
 
@@ -792,6 +792,7 @@ class PnP_infer():
 			local_command_map = np.clip(local_command_map, 0.0, 255.0)
 			local_command_map = torch.from_numpy(local_command_map[:48*4, 48*2:48*4]).cuda().float()[None, None, :, :].repeat(5, 1, 1, 1)
 
+			# da : [5, 1, H, W]。
 			da = self.perception_memory_bank[-1]['drivable_area'][agent_i][None, :, :, :].repeat(5, 1, 1, 1) # 5, 1, H, W
 
 			occ_final[agent_i, :, 2:3] = local_command_map
@@ -854,6 +855,18 @@ class PnP_infer():
 
 			control_all.append(control)
 			
+			#### useful for a extral expert decision
+			# self._vehicle = CarlaDataProvider.get_hero_actor(hero_id=count_i)
+			# ### decision from expert
+			# self.should_brake = self._should_brake()
+
+			# route_info["is_junction"] = self.is_junction
+			# route_info["is_vehicle_present"] = self.is_vehicle_present
+			# route_info["is_bike_present"] = self.is_bike_present
+			# # route_info["is_lane_vehicle_present"] = self.is_lane_vehicle_present
+			# # route_info["is_junction_vehicle_present"] = self.is_junction_vehicle_present
+			# route_info["is_pedestrian_present"] = self.is_pedestrian_present
+			# route_info["should_brake"] = int(self.should_brake)
 
 			route_info['speed'] = route_info['speed'].tolist()
 			route_info['target'] = route_info['target'].tolist()
@@ -865,8 +878,7 @@ class PnP_infer():
 			route_info['theta'] = float(car_data_raw[ego_i]['measurements']["theta"])
 			route_info['waypoints'] = route_info['waypoints'].tolist()
 
-			
-			tick_data[ego_i]["planning"] = route_info	
+			tick_data[ego_i]["planning"] = route_info
 
 			cur_actors = planning_input["occupancy"][ego_i][-1][:3].cpu().permute(1, 2, 0).contiguous().numpy()
 			cur_bev = (planning_input["occupancy"][ego_i][-1][-1:].cpu().permute(1, 2, 0).repeat(1, 1, 3)*120).contiguous().numpy()
@@ -948,6 +960,7 @@ class PnP_infer():
 
 		return control_all
 
+
 	def save(self, tick_data, frame):
 		if frame % self.skip_frames != 0:
 			return
@@ -955,6 +968,7 @@ class PnP_infer():
 			folder_path = self.save_path / pathlib.Path("ego_vehicle_{}".format(ego_i))
 			if not os.path.exists(folder_path):
 				os.mkdir(folder_path)
+
 			Image.fromarray(tick_data[ego_i]["surface"]).save(
 				folder_path / ("%04d.jpg" % frame)
 			)
@@ -1385,7 +1399,7 @@ def get_no_cooperation_perception(perception_dataloader, perception_model, devic
 	data = perception_dataloader.__getitem__(idx=None, extra_source=extra_source_cav)
 	
 	batch_data_perception = [data]
-	batch_data_perception = perception_dataloader.collate_batch_test(batch_data_perception, online_eval_only=True) # 在线评估 原：online_eval_only=True
+	batch_data_perception = perception_dataloader.collate_batch_test(batch_data_perception, online_eval_only=True)
 	batch_data_perception = train_utils.to_device(batch_data_perception, device)
 
 	output_dict = OrderedDict()
@@ -1394,7 +1408,7 @@ def get_no_cooperation_perception(perception_dataloader, perception_model, devic
 
 	pred_box_tensor, pred_score, gt_box_tensor = \
 	perception_dataloader.post_process_multiclass(batch_data_perception,
-							output_dict, online_eval_only=True)
+							output_dict, online_eval_only=True) # online_eval_only = True
 	
 	del data, batch_data_perception, output_dict, pred_score, perception_dataloader
 	torch.cuda.empty_cache()
