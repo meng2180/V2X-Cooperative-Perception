@@ -826,7 +826,6 @@ def compare_distance(det_boxes, det_score, gt_boxes, single_det, single_score, s
             else:
                 s_6.append(0)
 
-            # iou判断是不是同一个检测框
 #             is_same_box = False
 #             iou = single_det_polygon.intersection(det_polygon).area / single_det_polygon.union(det_polygon).area
 #             if iou >= iou_thresh:
@@ -864,7 +863,6 @@ def compare_distance(det_boxes, det_score, gt_boxes, single_det, single_score, s
                 
                 
             else:
-                # Ego 检测错误
                 
                 #CCLE
                 ious_cp_gt = common_utils.compute_iou(gt_polygon, det_polygon_list)
