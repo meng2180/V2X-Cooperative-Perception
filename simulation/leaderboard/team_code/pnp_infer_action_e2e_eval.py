@@ -1318,10 +1318,7 @@ class PnP_infer():
 		result_total = {}
 		Mis_error = {"LCME": 0, "LCLE": 0, "LADE": 0, "CCME": 0, "CCLE": 0, "CADE": 0, "GT": 0}
 		Mis_error_last = []
-		# result_stat_all = {}
-		# class_list = [0,1,3]
-		# for c in class_list:
-		# 	result_stat_all[c] = {0.5: {'tp': [], 'fp': [], 'gt': 0, 'score': []}}
+
 		result_stat_all = {0.5: {'tp': [], 'fp': [], 'gt': 0, 'score': []}}
 		result_stat_all_last = {0.5: {'tp': [], 'fp': [], 'gt': 0, 'score': []}}
 		for i in range(eval_len):
@@ -1362,22 +1359,13 @@ class PnP_infer():
 		else :
 			result_total.update({'end_10s': caculate_fault_hz(Mis_error_last, -51, eval_len - 1)})
 		
-		result_total.update({'global': Mis_error_last[eval_len - 1]})
-		# class_labels = {0: "v", 1:"p", 3: "c"}
-		# m_ap = 0
-		# # for c in class_list:
-		# 	# result_stat = result_stat_all[c]
-		# 	# print(result_stat)
-		# 	ap, mrec, mprec = eval_utils.calculate_ap(result_stat, 0.5)
-		# 	result_total.update({class_labels[c]: ap})
-		# 	m_ap += ap
+
 		ap, mrec, mprec = eval_utils.calculate_ap(result_stat_all, 0.5)
 		# print(result_stat_all_last)
 		if result_stat_all_last[0.5]['gt']:
 			end_10_ap, end_10_mrec, end_10_mprec = eval_utils.calculate_ap(result_stat_all_last, 0.5)
 		else : 
 			end_10_ap = 0
-		result_total.update({"AP": ap})
 		result_total.update({"end_10_AP": end_10_ap})
 
 		with open(self.mis_error_path, 'w') as log_file:
