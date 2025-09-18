@@ -10,7 +10,7 @@ import numpy as np
 import opencood.hypes_yaml.yaml_utils as yaml_utils
 from opencood.tools import train_utils, inference_utils
 from opencood.data_utils.datasets import build_dataset
-from opencood.utils import eval_utils
+from opencood.utils import eval_utils, eval_utils_v2
 from opencood.visualization import vis_utils, my_vis, simple_vis
 from opencood.utils.common_utils import update_dict
 torch.multiprocessing.set_sharing_strategy('file_system')
@@ -59,37 +59,30 @@ def main():
     print(hypes['name'])
 
 
+
+    print(f"Communication range: {hypes['comm_range']}")
+
+    x_min, x_max = -eval(opt.range.split(',')[0]), eval(opt.range.split(',')[0])
+    y_min, y_max = -eval(opt.range.split(',')[1]), eval(opt.range.split(',')[1])
+    opt.note += f"_{x_max}_{y_max}"
+
+    new_cav_range = [x_min, y_min, hypes['postprocess']['anchor_args']['cav_lidar_range'][2], \
+                        x_max, y_max, hypes['postprocess']['anchor_args']['cav_lidar_range'][5]]
+
+    # replace all appearance
+    hypes = update_dict(hypes, {
+        "cav_lidar_range": new_cav_range,
+        "lidar_range": new_cav_range,
+        "gt_range": new_cav_range
+    })
     
 
-    if 'heter' in hypes:
-#         hypes['heter']['lidar_channels'] = 64
-        # opt.note += "_16ch"
-#         print(f"Lidar channels: {hypes['heter']['lidar_channels_dic']}")
-        lidar_channels = hypes.get('heter', {}).get('lidar_channels_dic', {}).get('m1', 64)
-        print(f"Lidar channels: {lidar_channels}")
-        print(f"Communication range: {hypes['comm_range']}")
-
-        x_min, x_max = -eval(opt.range.split(',')[0]), eval(opt.range.split(',')[0])
-        y_min, y_max = -eval(opt.range.split(',')[1]), eval(opt.range.split(',')[1])
-        opt.note += f"_{x_max}_{y_max}"
-
-        new_cav_range = [x_min, y_min, hypes['postprocess']['anchor_args']['cav_lidar_range'][2], \
-                            x_max, y_max, hypes['postprocess']['anchor_args']['cav_lidar_range'][5]]
-
-        # replace all appearance
-        hypes = update_dict(hypes, {
-            "cav_lidar_range": new_cav_range,
-            "lidar_range": new_cav_range,
-            "gt_range": new_cav_range
-        })
-        
-
-        # reload anchor
-        yaml_utils_lib = importlib.import_module("opencood.hypes_yaml.yaml_utils")
-        for name, func in yaml_utils_lib.__dict__.items():
-            if name == hypes["yaml_parser"]:
-                parser_func = func
-        hypes = parser_func(hypes)
+    # reload anchor
+    yaml_utils_lib = importlib.import_module("opencood.hypes_yaml.yaml_utils")
+    for name, func in yaml_utils_lib.__dict__.items():
+        if name == hypes["yaml_parser"]:
+            parser_func = func
+    hypes = parser_func(hypes)
         
 
 
@@ -183,12 +176,16 @@ def main():
                             drop_last=False)
     
     # Create the dictionary for evaluation
-
+    result_stat_1 = {0.5: {'tp': [], 'fp': [], 'gt': 0, 'score': []}}
     result_stat_2 = {
         0.5: {
             'fp': [],
             'tp': [],
             'gt': 0,
+            'fp_single': [],
+            'fn_single': [],
+            'tp_single': [],
+
             'score': [],
             'fp_false_detection': [],
             'fp_localization': [],
@@ -302,14 +299,21 @@ def main():
             gt_box_tensor_1 = infer_result_1['gt_box_tensor']
             pred_score_1 = infer_result_1['pred_score']
             
+            ### single
+            eval_utils.caluclate_tp_fp(pred_box_tensor_1,
+                                    pred_score_1,
+                                    gt_box_tensor_1,
+                                    result_stat_1,
+                                    0.5)
 
-            eval_utils.caluclate_tp_fp(pred_box_tensor,
+            eval_utils_v2.caluclate_tp_fp(pred_box_tensor,
                                     pred_score,
                                     gt_box_tensor,
                                     result_stat_2,
                                     0.5)
-
-            eval_utils.compare(pred_box_tensor,
+            
+            # eval_utils_v2.calculation_error(infer_result, infer_result_1, result_stat_2, 0.5)
+            eval_utils_v2.compare(pred_box_tensor,
                         pred_score,
                         gt_box_tensor,
                         pred_box_tensor_1,
@@ -317,11 +321,14 @@ def main():
                         gt_box_tensor_1,
                         result_stat_2,
                         0.5)
-#             eval_utils.caluclate_tp_fp_rq3(det,
+#             eval_utils_v2.caluclate_tp_fp_rq3(det,
 #                                     score,
 #                                     gt,
 #                                     result_stat_2,
 #                                     0.5)
+            result_stat_2[0.5]['fp_single'] = result_stat_1[0.5]['fp']
+            result_stat_2[0.5]['tp_single'] = result_stat_1[0.5]['tp']
+            result_stat_2[0.5]['gt_single'] = result_stat_1[0.5]['gt']
             
             if opt.save_npy:
                 npy_save_path = os.path.join(opt.model_dir, 'npy')
@@ -349,7 +356,7 @@ def main():
                                      "agent_modality_list": agent_modality_list_1})
                 
                 
-            # model_dir 可视化保存
+            # model_dir
             if (i % opt.save_vis_interval == 0) and (pred_box_tensor is not None or gt_box_tensor is not None):
                 vis_save_path_root = os.path.join(opt.model_dir, f'vis_{infer_info}')
                 if not os.path.exists(vis_save_path_root):
@@ -376,7 +383,7 @@ def main():
                 
                 
 
-#             single_dir 可视化保存
+#             single_dir
             if (i % opt.save_vis_interval == 0) and (pred_box_tensor_1 is not None or gt_box_tensor_1 is not None):
                 vis_save_path_root_1 = os.path.join(opt.model_dir, f'vis_{infer_info}_single')
                 if not os.path.exists(vis_save_path_root_1):
@@ -405,9 +412,9 @@ def main():
 
         torch.cuda.empty_cache()
 
-    ap50 = eval_utils.eval_final_results(result_stat_2,
+    ap50 = eval_utils_v2.eval_final_results(result_stat_2,
                                 opt.model_dir, infer_info)
-    ap50_1 = eval_utils.eval_final_results(result_stat_2,
+    ap50_1 = eval_utils_v2.eval_final_results(result_stat_2,
                                 "opencood/logs/failure", infer_info)
 
 if __name__ == '__main__':

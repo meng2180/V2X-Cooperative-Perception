@@ -118,13 +118,15 @@ if __name__ == "__main__":
     if func == 'rename_to_new_version':
         checkpoint_path = sys.argv[2]
         rename_to_new_version(checkpoint_path)
-    if func == 'remove_m4_trunk':
+    elif func == 'remove_m4_trunk':
         checkpoint_path = sys.argv[2]
         remove_m4_trunk(checkpoint_path)
-    if func == 'merge':
+    elif func == 'merge':
         single_model_dir = sys.argv[2]
         stage1_model_dir = sys.argv[3]
         output_model_dir = sys.argv[4]
         merge_and_save(single_model_dir, stage1_model_dir, output_model_dir)
-    if func == 'merge_final': 
+    elif func == 'merge_final': 
         merge_and_save_final(sys.argv[2:-1], sys.argv[-1])
+    else:
+        raise "This function not implemented"

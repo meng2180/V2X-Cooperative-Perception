@@ -42,7 +42,7 @@ def getLatemulticlassFusionDataset(cls):
     cls: the Basedataset.
     """
     class LatemulticlassFusionDataset(cls):
-        def __init__(self, params, visualize, train=True):
+        def __init__(self, params, visualize, train=True, single=False):
             super().__init__(params, visualize, train)
             self.anchor_box = self.post_processor.generate_anchor_box()
             self.anchor_box_torch = torch.from_numpy(self.anchor_box)

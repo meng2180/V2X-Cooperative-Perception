@@ -271,14 +271,14 @@ Spconv is a spatially sparse convolution library for generate voxel features in 
 
 - Opencood
 ```
-python simulation/opencood/setup.py develop
-pip install -r simulation/opencood/requirements_rq3&rq4.txt
+python setup.py develop
+pip install -r simulation/opencood/requirements.txt
 python simulation/opencood/utils/setup.py build_ext --inplace
 ```
 
 Other python package :
 ```
-pip install -r simulation/requirements.txt
+pip install -r simulation/requirements_rq3&rq4.txt
 ```
 
 ## Usage
@@ -294,11 +294,8 @@ bash scripts/running_carla.sh
 
 Output the result `results/(early_fusion, late_fusion, fcooper, v2xvit, single)`
 ```
-# All models and routes running RQ3
-bash RQ3/rq3_integrated.sh
-
-# Run a single sample
-bash RQ3/rq3.sh 0 40000 early_fusion early_5_10 1
+# Test the performance of all models along a certain route
+bash RQ3/rq3_eval.sh
 ```
 The parameters of `RQ3/rq3.sh` :
 ```

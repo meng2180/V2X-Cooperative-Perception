@@ -1,12 +1,6 @@
-tabulate
+numpy
+cython
+tensorboardX
 shapely
-ephem
-opencv-python==4.2.0.34
-py-trees==0.8.3
-carla-birdeye-view==1.1.1
-networkx==2.2
-scikit-image
-pygame
-dictor
-efficientnet_pytorch==0.7.0
-setuptools==41.2.0
+einops
+imageio
