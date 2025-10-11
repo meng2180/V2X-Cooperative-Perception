@@ -9,7 +9,9 @@ This repository contains a testing framework for Cooperative-Perception termed `
 ![PE_Demo](simulation/demo/pe.gif)
 
 - [Supplementary Website](https://sites.google.com/view/v2x-empirical)
+
 ## The structure of the repository
+
 ```
 V2X-Cooperative-Perception
 ├── RQ3
@@ -38,6 +40,7 @@ V2X-Cooperative-Perception
 Download the dataset in the simulation/dataset folder.
 
 `dataset` folder tree :
+
 ```
 simuilation/dataset
 . 
@@ -59,12 +62,14 @@ simuilation/dataset
 - OPV2V: Please refer to [this repo](https://github.com/DerrickXuNu/OpenCOOD). You also need to download `additional-001.zip` which stores data for camera modality.
 - OPV2V-H: Please download data in [Huggingface Hub](https://huggingface.co/datasets/yifanlu/OPV2V-H). Please refer to [Downloading datasets](https://huggingface.co/docs/hub/datasets-downloading) tutorial for the usage.
 - V2XSet: For the complete dataset, Please refer to [this repo](https://github.com/DerrickXuNu/v2x-vit).
-- V2XSet-part: Experimental data in RQ2, Please refer to [this repo](https://huggingface.co/datasets/pangdudu/V2X-Cooperative-Perception).
+- V2XSet-part: Experimental data in RQ2, Please refer to [this repo](https://drive.google.com/drive/folders/1QQCy1rtf6FbIgdkoL0HG-Gt1K2lw3bj_?usp=share_link).
 
 ## Checkpoints
+
 - [Download Pre-trained Collaborative Perception Model](https://huggingface.co/pangdudu/V2X-Cooperative-Perception)
 
 `checkpoints` folder tree :
+
 ```
 checkpoints
 ├── RQ1
@@ -89,6 +94,7 @@ checkpoints
 ## Before RQ1 / RQ2
 
 ### RQ1 and RQ2 working environment
+
 - Ubuntu 20.04
 - Python 3.8
 - CMake 3.22.1
@@ -103,6 +109,7 @@ conda install pytorch==1.12.0 torchvision==0.13.0 torchaudio==0.12.0 cudatoolkit
 conda activate v2x-hybrid
 pip install spconv-cu116 # match your cudatoolkit version
 ```
+
 #### Dependency repository
 
 - [Opencood](https://github.com/DerrickXuNu/OpenCOOD)
@@ -110,6 +117,7 @@ pip install spconv-cu116 # match your cudatoolkit version
 OpenCOOD is an Open Cooperative Detection framework for autonomous driving that allows users to train and test various collaborative perception models.
 
 Installation of OpenCOOD :
+
 ```
 # Install the requirements.
 cd simulation
@@ -145,7 +153,9 @@ CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch  --nproc_per_node=2 
 `--nproc_per_node` indicate the GPU number you will use.
 
 ### For RQ1
+
 - How does equipping cooperative agents with heterogeneous sensors affect the performance of cooperative perception systems?
+
 ```
 python opencood/tools/inference_rq1.py --model_dir ${CHECKPOINT_FOLDER} [--fusion_method intermediate]
 ```
@@ -153,27 +163,29 @@ python opencood/tools/inference_rq1.py --model_dir ${CHECKPOINT_FOLDER} [--fusio
 - `inference_rq1.py` has more optional args, you can inspect into this file.
 - `--model_dir`  the path of the checkpoints. We now support LiDAR-based cooperation, camera-based cooperation, and hybrid multimodal (LiDAR and camera) sensor cooperation.
 - `[--fusion_method intermediate]` the default fusion method is intermediate fusion. According to your fusion strategy in training, available fusion_method can be:
-  - **single**: only ego agent's detection, only ego's gt box. *[only for late fusion dataset]*
-  - **no**: only ego agent's detection, all agents' fused gt box. *[only for late fusion dataset]*
-  - **late**: late fusion detection from all agents, all agents' fused gt box. *[only for late fusion dataset]*
-  - **early**: early fusion detection from all agents, all agents' fused gt box. *[only for early fusion dataset]*
-  - **intermediate**: intermediate fusion detection from all agents, all agents' fused gt box. *[only for intermediate fusion dataset]*
+    - **single**: only ego agent's detection, only ego's gt box. *[only for late fusion dataset]*
+    - **no**: only ego agent's detection, all agents' fused gt box. *[only for late fusion dataset]*
+    - **late**: late fusion detection from all agents, all agents' fused gt box. *[only for late fusion dataset]*
+    - **early**: early fusion detection from all agents, all agents' fused gt box. *[only for early fusion dataset]*
+    - **intermediate**: intermediate fusion detection from all agents, all agents' fused gt box. *[only for intermediate fusion dataset]*
 
 ### For RQ2
+
 - What are the differences in cooperative perception performance between V2V and V2I cooperation modes?
 - In V2XSET, we have retained only scenarios where both Inf. and CAV are present.
+
 ```
 python opencood/tools/inference_rq2.py --model_dir ${CHECKPOINT_FOLDER} [--fusion_method intermediate] --mode [cv/inf]
 ```
 
 - `inference_rq2.py` has more optional args, you can inspect into this file.
 - `[--fusion_method intermediate]` the default fusion method is intermediate fusion. According to your fusion strategy in training, available fusion_method can be:
-  - **single**: only ego agent's detection, only ego's gt box. *[only for late fusion dataset]*
-  - **no**: only ego agent's detection, all agents' fused gt box. *[only for late fusion dataset]*
-  - **late**: late fusion detection from all agents, all agents' fused gt box. *[only for late fusion dataset]*
-  - **early**: early fusion detection from all agents, all agents' fused gt box. *[only for early fusion dataset]*
-  - **intermediate**: intermediate fusion detection from all agents, all agents' fused gt box. *[only for intermediate fusion dataset]*
--  `--mode` specifies the type of cooperative agent, where `cv` stands for cooperative vehicle and `inf` stands for cooperative infrastructure.
+    - **single**: only ego agent's detection, only ego's gt box. *[only for late fusion dataset]*
+    - **no**: only ego agent's detection, all agents' fused gt box. *[only for late fusion dataset]*
+    - **late**: late fusion detection from all agents, all agents' fused gt box. *[only for late fusion dataset]*
+    - **early**: early fusion detection from all agents, all agents' fused gt box. *[only for early fusion dataset]*
+    - **intermediate**: intermediate fusion detection from all agents, all agents' fused gt box. *[only for intermediate fusion dataset]*
+- `--mode` specifies the type of cooperative agent, where `cv` stands for cooperative vehicle and `inf` stands for cooperative infrastructure.
 
 ### Output Format
 
@@ -227,6 +239,7 @@ TP_50:
 ## Before RQ3 / RQ4
 
 ### RQ3 and RQ4 working environment
+
 - Ubuntu 20.04
 - Python 3.7
 - CMake 3.22.1
@@ -251,6 +264,7 @@ conda install cudnn -c conda-forge
 CARLA is an open source simulator for autonomous driving research, which is used for online evaluation of collaborative perception models.
 
 Installation of CARLA 0.9.10.1:
+
 ```
 mkdir simulation/carla_root
 cd simulation/carla_root
@@ -270,6 +284,7 @@ cd ../..
 Spconv is a spatially sparse convolution library for generate voxel features in perception module. Please [click here]( https://github.com/traveller59/spconv/tree/v1.2.1) for the installation of Spconv (1.2.1).
 
 - Opencood
+
 ```
 python setup.py develop
 pip install -r simulation/opencood/requirements.txt
@@ -277,6 +292,7 @@ python simulation/opencood/utils/setup.py build_ext --inplace
 ```
 
 Other python package :
+
 ```
 pip install -r simulation/requirements_rq3&rq4.txt
 ```
@@ -284,20 +300,26 @@ pip install -r simulation/requirements_rq3&rq4.txt
 ## Usage
 
 #### Start the Carla Server
+
 This step will run the carla server to start the online evaluation.
+
 ```
 bash scripts/running_carla.sh
 ```
 
 #### For RQ3
+
 - RQ3 seeks to evaluate  the relationship between imperfect cooperative perception errors and driving violations.
 
 Output the result `results/(early_fusion, late_fusion, fcooper, v2xvit, single)`
+
 ```
 # Test the performance of all models along a certain route
 bash RQ3/rq3_eval.sh
 ```
+
 The parameters of `RQ3/rq3.sh` :
+
 ```
 usage: RQ3/rq3.sh ${Route_id} ${Carla_port} ${CP_model} ${Agent_config} ${Scenario_config}
 
@@ -308,17 +330,20 @@ optional arguments:
   ${Agent_config}     Agent configuration of CP model
   ${Scenario_config}  Configuration of test scenarios
 ```
+
 - CP_model:
-  - **single**: only ego agent's detection, all agents' fused gt box.
-  - **early_fusion**: early fusion detection from all agents, all agents' fused gt box.
-  - **late_fusion**: late fusion detection from all agents, all agents' fused gt box.
-  - **fcooper**: v2xvit fusion detection from all agents, all agents' fused gt box.
-  - **v2xvit**: v2xvit fusion detection from all agents, all agents' fused gt box.
+    - **single**: only ego agent's detection, all agents' fused gt box.
+    - **early_fusion**: early fusion detection from all agents, all agents' fused gt box.
+    - **late_fusion**: late fusion detection from all agents, all agents' fused gt box.
+    - **fcooper**: v2xvit fusion detection from all agents, all agents' fused gt box.
+    - **v2xvit**: v2xvit fusion detection from all agents, all agents' fused gt box.
 
 #### For RQ4
+
 - RQ4 seeks to evaluate the extent to which communication issues (e.g. Communication Latency and Pose error) encountered during online deployment diminish the effectiveness of cooperative perception systems.
 
 Output the `results_(latency, noise)/(early_fusion, late_fusion, fcooper, v2xvit, single)`
+
 ```
 # Imitates the network communication latency.
 bash RQ4/rq4_cl.sh 0 40000 early_fusion early_5_10 1
@@ -328,6 +353,7 @@ bash RQ4/rq4_pe.sh 0 40000 early_fusion early_5_10 1
 ```
 
 ## Acknowledgements
+
 This project makes use of the following open-source projects:
 
 - [Carla leaderboard](https://github.com/carla-simulator/leaderboard)
@@ -336,4 +362,4 @@ This project makes use of the following open-source projects:
 - [V2Xverse](https://github.com/CollaborativePerception/V2Xverse)
 - [HEAL](https://github.com/yifanlu0227/HEAL)
 
-We sincerely thank the authors for their contributions to the community.
+We sincerely thank the authors for their contributions to the community.``
