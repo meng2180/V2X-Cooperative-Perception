@@ -352,6 +352,21 @@ bash RQ4/rq4_cl.sh 0 40000 early_fusion early_5_10 1
 bash RQ4/rq4_pe.sh 0 40000 early_fusion early_5_10 1
 ```
 
+## Citation
+
+```shell
+@INPROCEEDINGS{11338520,
+  author={Guo, An and Zhang, Shuoxiao and Tang, Enyi and Gao, Xinyu and Pang, Haomin and Tian, Haoxiang and Mu, Yanzhou and Wen, Wu and Fang, Chunrong and Chen, Zhenyu},
+  booktitle={2025 40th IEEE/ACM International Conference on Automated Software Engineering (ASE)}, 
+  title={When Autonomous Vehicle Meets V2X Cooperative Perception: How Far Are We?}, 
+  year={2025},
+  pages={1169-1181},
+  keywords={Systematics;Vehicle-to-infrastructure;Vehicular ad hoc networks;Software systems;Software reliability;Sensors;Vehicle-to-everything;Autonomous vehicles;Testing;Software engineering;Autonomous Driving Systems;Cooperative Perception;Offline and Online Testing},
+  doi={10.1109/ASE63991.2025.00101}}
+
+```
+
+
 ## Acknowledgements
 
 This project makes use of the following open-source projects:
